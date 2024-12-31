@@ -10,7 +10,7 @@ class MyApp(ctk.CTk):
 
         # Configure the main window
         self.title("Sentiment Analysis for Social Media")
-        self.geometry("1000x800")
+        self.geometry("1000x850")
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
 
