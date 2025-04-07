@@ -1,0 +1,147 @@
+[2025-04-07 22:42:06]
+Congratulations to Coach Auriemma, Paige Bueckers, Sarah Strong, Azzi Fudd and all the Huskies for winning the NCAA Championship!
+  Negative: 0.08%
+  Neutral: 2.02%
+  Positive: 97.90%
+
+[2025-04-07 22:42:20]
+The 20 most hilarious and iconic ads you've ever seen
+  Negative: 0.87%
+  Neutral: 12.27%
+  Positive: 86.86%
+
+[2025-04-07 22:42:28]
+The United States has a chance to do something that should have been done DECADES AGO. Don’t be Weak! Don’t be Stupid! Don’t be a PANICAN (A new party based on Weak and Stupid people!). Be Strong, Courageous, and Patient, and GREATNESS will be the result!
+  Negative: 20.57%
+  Neutral: 39.60%
+  Positive: 39.84%
+
+[2025-04-07 22:42:38]
+The United States has a chance to do something that should have been done DECADES AGO. Don’t be Weak! Don’t be Stupid! Don’t be a PANICAN (A new party based on Weak and Stupid people!). Be Strong, Courageous, and Patient, and GREATNESS will be the result!
+  Negative: 20.57%
+  Neutral: 39.60%
+  Positive: 39.84%
+
+[2025-04-07 22:42:50]
+The United States has a chance to do something that should have been done DECADES AGO. Don’t be Weak! Don’t be Stupid! Don’t be a PANICAN (A new party based on Weak and Stupid people!). Be Strong, Courageous, and Patient, and GREATNESS will be the result
+  Negative: 21.68%
+  Neutral: 40.40%
+  Positive: 37.92%
+
+[2025-04-07 22:42:56]
+The United States has a chance to do something that should have been done DECADES AGO. Don’t be Weak! Don’t be Stupid! Don’t be a PANICAN (A new party based on Weak and Stupid people!). Be Strong, Courageous, and Patient, and GREATNESS will be the result!
+  Negative: 20.57%
+  Neutral: 39.60%
+  Positive: 39.84%
+
+[2025-04-07 22:43:01]
+I get an uneasy feeling when people say, ‘Trust Trump, believe him…’ Economics isn’t about faith — it’s about facts and expertise. We’re playing a game that can only be lost.
+  Negative: 69.92%
+  Neutral: 27.33%
+  Positive: 2.75%
+
+[2025-04-07 22:43:04]
+I am behind you, even though I lost my job supporting you. Not sure what my future will bring me, and at 58 it's a  hard start over. Most employers pass on people my age unless it's minimum wage which I just can't do.
+  Negative: 59.78%
+  Neutral: 33.97%
+  Positive: 6.25%
+
+[2025-04-07 22:43:08]
+The $HYPER chart is strong! 
+We are patient!
+We are building!
+We are ready to keep winning!
+  Negative: 0.21%
+  Neutral: 4.33%
+  Positive: 95.46%
+
+[2025-04-07 22:43:11]
+I’m tired of winning Mr President.
+
+Thank you!
+  Negative: 51.69%
+  Neutral: 33.90%
+  Positive: 14.41%
+
+[2025-04-07 22:43:16]
+It’s clear economics isn’t really your thing.
+May I kindly suggest subscribing to 
+@ProfDemirtas
+ of Siverek on Twitter? For the price of just one hamburger, you’ll finally get some real solutions! Thanx
+  Negative: 28.76%
+  Neutral: 48.19%
+  Positive: 23.06%
+
+[2025-04-07 22:43:23]
+Trust in Trump guys.
+
+He knows what he's doing.
+
+In a few weeks, most of you will be calling him a genius.
+
+The Art of the Deal in motion here.
+  Negative: 8.81%
+  Neutral: 42.68%
+  Positive: 48.50%
+
+[2025-04-07 22:43:28]
+For decades, America has been exploited in trade while the political class looked the other way. Now that Trump is finally putting our interests first, Wall Street panics and the usual critics cry foul. Let them whine—temporary market dips mean nothing compared to reclaiming
+  Negative: 75.29%
+  Neutral: 22.04%
+  Positive: 2.67%
+
+[2025-04-07 22:43:37]
+You are proving the Nobel economist right. Any comments on the reports that you have panicked and is expected to announce a 90-Day pause on your tariffs?
+  Negative: 22.81%
+  Neutral: 61.34%
+  Positive: 15.85%
+
+[2025-04-07 22:43:52]
+I am behind you, even though I lost my job supporting you. Not sure what my future will bring me, and at 58 it's a  hard start over. Most employers pass on people my age unless it's minimum wage which I just can't do.
+  Negative: 59.78%
+  Neutral: 33.97%
+  Positive: 6.25%
+
+[2025-04-07 22:47:02]
+Each of those text nodes is an object that has the properties and methods documented in this article.
+  Negative: 1.80%
+  Neutral: 91.30%
+  Positive: 6.90%
+
+[2025-04-07 22:47:16]
+Returns a string containing the text of all Text nodes logically adjacent to this Node, concatenated in document order.
+  Negative: 4.36%
+  Neutral: 88.98%
+  Positive: 6.66%
+
+[2025-04-07 22:47:24]
+Breaks the node into two nodes at a specified offset.
+  Negative: 14.20%
+  Neutral: 82.76%
+  Positive: 3.04%
+
+[2025-04-07 22:47:31]
+d:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page3.py:141: UserWarning: Starting a Matplotlib GUI outside of the main thread will likely fail.
+  self.shap_figure, ax = plt.subplots(figsize=(4, 3))
+  Negative: 71.11%
+  Neutral: 26.92%
+  Positive: 1.97%
+
+[2025-04-07 22:48:40]
+Let me know if you'd like to log these warnings to a file instead, or suppress others as well!
+  Negative: 17.18%
+  Neutral: 77.87%
+  Positive: 4.95%
+
+[2025-04-07 22:48:48]
+Done! The warning about running Matplotlib outside the main thread is now suppressed using:
+  Negative: 40.07%
+  Neutral: 54.10%
+  Positive: 5.82%
+
+[2025-04-07 23:14:17]
+The United States has a chance to do something that should have been done DECADES AGO. Don’t be Weak! Don’t be Stupid! Don’t be a PANICAN (A new party based on Weak and Stupid people!). Be Strong, Courageous, and Patient, and GREATNESS will be the result!
+  Negative: 20.57%
+  Neutral: 39.60%
+  Positive: 39.84%
+

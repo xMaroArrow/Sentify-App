@@ -3,6 +3,7 @@ import customtkinter as ctk
 from pages.page1 import Page1  
 from pages.home_page import HomePage
 from pages.page2 import Page2  
+from pages.page3 import Page3  
 
 class MyApp(ctk.CTk):
     def __init__(self):
@@ -68,11 +69,15 @@ class MyApp(ctk.CTk):
         page2_button = ctk.CTkButton(self.sidebar_frame, text="Page 2", command=lambda: self.show_page("Page2"))
         page2_button.pack(pady=5)
 
+        page3_button = ctk.CTkButton(self.sidebar_frame, text="Page 3", command=lambda: self.show_page("Page3"))  
+        page3_button.pack(pady=5)
+
     def initialize_pages(self):
         """Initialize all pages."""
         self.pages["Home"] = HomePage(self.container)
         self.pages["Page1"] = Page1(self.container)
         self.pages["Page2"] = Page2(self.container)
+        self.pages["Page3"] = Page3(self.container)  
 
         # Hide all pages initially
         for page in self.pages.values():
