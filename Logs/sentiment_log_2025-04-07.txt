@@ -145,3 +145,36 @@ The United States has a chance to do something that should have been done DECADE
   Neutral: 39.60%
   Positive: 39.84%
 
+[2025-04-07 23:18:11]
+I WANT IT
+  Negative: 5.69%
+  Neutral: 25.87%
+  Positive: 68.44%
+
+[2025-04-07 23:18:15]
+Nice vandal
+  Negative: 11.63%
+  Neutral: 41.57%
+  Positive: 46.80%
+
+[2025-04-07 23:18:21]
+But impermanence hurts thine empire
+  Negative: 84.37%
+  Neutral: 14.89%
+  Positive: 0.74%
+
+[2025-04-07 23:18:36]
+What am I?
+  Negative: 25.68%
+  Neutral: 69.52%
+  Positive: 4.80%
+
+[2025-04-07 23:18:40]
+I am promised but never dated,
+Whispered in hope, eternally fated.
+Not today, nor soon shall I play,
+Yet still I dwell in ‘some other day’.
+  Negative: 18.89%
+  Neutral: 64.35%
+  Positive: 16.77%
+

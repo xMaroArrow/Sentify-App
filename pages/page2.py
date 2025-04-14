@@ -1,169 +1,262 @@
 import customtkinter as ctk
-import matplotlib.pyplot as plt
+import tweepy
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import torch
-import shap
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
+import threading
+import csv
+import ssl
+import os
+import time
+
+from datetime import datetime
 
 class Page2(ctk.CTkFrame):
     def __init__(self, parent):
+        self.auto_refresh_interval = 60  # seconds
+        self.auto_refresh_enabled = True
+        self.cooldown_active = False
         super().__init__(parent)
 
-        # Page Label
-        label = ctk.CTkLabel(self, text="Explainable Sentiment Analysis", font=("Arial", 20))
-        label.pack(pady=10)
+        self.scrollable = ctk.CTkScrollableFrame(self, width=800, height=800)
+        self.scrollable.pack(expand=True, fill="both", padx=10, pady=10)
 
-        # Load Hugging Face model and tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
         self.model = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
+        self.model.eval()
 
-        # Entry Box
-        entry_label = ctk.CTkLabel(self, text="Enter your text or tweet:", font=("Arial", 16))
-        entry_label.pack(pady=5)
+        title = ctk.CTkLabel(self.scrollable, text="Opinion Polling via Twitter", font=("Arial", 20))
+        title.pack(pady=10)
 
-        self.text_entry = ctk.CTkEntry(self, placeholder_text="Enter text here...", width=400)
-        self.text_entry.pack(pady=10)
+        desc = ctk.CTkLabel(self.scrollable, text="Enter a Twitter hashtag or keyword to analyze public sentiment.", font=("Arial", 14))
+        desc.pack(pady=5)
 
-        # Submit Button
-        submit_button = ctk.CTkButton(self, text="Analyze and Explain", command=self.submit_action)
-        submit_button.pack(pady=10)
+        self.entry = ctk.CTkEntry(self.scrollable, placeholder_text="e.g. #AI, climate change", width=400)
+        self.entry.pack(pady=10)
 
-        # Explanation Display Area
-        self.explanation_text_area = ctk.CTkTextbox(self, width=400, height=150)
-        self.explanation_text_area.configure(state="disabled")  # Make it read-only
-        self.explanation_text_area.pack(pady=10)
+        self.result_label = ctk.CTkLabel(self.scrollable, text="", font=("Arial", 12))
+        self.status_label = ctk.CTkLabel(self.scrollable, text="Status: Idle", font=("Arial", 11), text_color="gray")
+        self.result_label.pack(pady=5)
+        self.status_label.pack(pady=2)
 
-        # Placeholder for SHAP bar chart
-        self.canvas_frame = ctk.CTkFrame(self)
-        self.canvas_frame.pack(pady=10)
-        self.shap_figure = None
-        self.shap_canvas = None
+        submit_btn = ctk.CTkButton(self.scrollable, text="Analyze", command=self.run_polling_thread)
+        submit_btn.pack(pady=10)
 
-    def submit_action(self):
-        """Handle the submit action and perform explainable sentiment analysis."""
-        user_input = self.text_entry.get().strip()
-        if not user_input:
-            self.display_explanation("Please enter some text.")
+        self.canvas_frame = ctk.CTkFrame(self.scrollable)
+        self.canvas_frame.pack(pady=20)
+
+        self.trend_frame = ctk.CTkFrame(self.scrollable)
+        self.trend_frame.pack(pady=20)
+
+        export_btn = ctk.CTkButton(self.scrollable, text="Export Trend Chart", command=self.export_trend_chart)
+        export_btn.pack(pady=5)
+
+        reset_btn = ctk.CTkButton(self.scrollable, text="Reset Trend Data", command=self.reset_trend_data)
+        reset_btn.pack(pady=5)
+
+        # Start auto-refresh
+        self.schedule_auto_refresh()
+
+        self.sentiment_history = []
+        self.time_stamps = []
+
+    def run_polling_thread(self):
+        if self.cooldown_active:
+            self.result_label.configure(text="Please wait a few seconds before submitting again.")
+            return
+        self.cooldown_active = True
+        self.result_label.configure(text="Running... Please wait.")
+        self.status_label.configure(text="Status: Connecting to Twitter API...", text_color="orange")
+        self.after(10000, self.reset_cooldown)  # 10-second cooldown
+
+        threading.Thread(target=self.poll_opinion, daemon=True).start()
+
+    def start_countdown(self, seconds):
+        """Show a countdown in status_label for rate-limit wait time."""
+        if seconds <= 0:
+            self.status_label.configure(text="Status: Idle", text_color="gray")
+            return
+        self.status_label.configure(text=f"Retry in {seconds}s", text_color="orange")
+        self.after(1000, lambda: self.start_countdown(seconds - 1))
+
+    def schedule_auto_refresh(self):
+        """Automatically re-run polling every self.auto_refresh_interval seconds."""
+        if self.auto_refresh_enabled:
+            self.after(self.auto_refresh_interval * 1000, self.run_polling_thread)
+
+    def reset_cooldown(self):
+        self.cooldown_active = False
+
+    def poll_opinion(self):
+        """Fetch tweets from Twitter, analyze sentiment, and update charts."""
+        ssl._create_default_https_context = ssl._create_unverified_context
+        keyword = self.entry.get().strip()
+        if not keyword:
+            self.result_label.configure(text="Please enter a hashtag or keyword.")
             return
 
-        # Analyze sentiment and explain the result
-        sentiment_scores, token_shap_map = self.analyze_and_explain(user_input)
+        self.result_label.configure(text="Collecting tweets and analyzing sentiment... Please wait.")
+        tweets = []
+        tweet_data = []
 
-        # Display the SHAP explanation and sentiment scores
-        self.display_explanation(self.format_explanation(sentiment_scores, token_shap_map))
+        try:
+            client = tweepy.Client(bearer_token="AAAAAAAAAAAAAAAAAAAAAONjxwEAAAAAj74TclHPqXhKgRmuSlsIRJSXF9g%3DdsDgbh7xAa0apGZjGtkfFWYKWVIZO0Hd2Y1Hi9uqXobjSrzFw1")  # <-- Insert your real token
+            query = f"{keyword} -is:retweet lang:en"
+            response = client.search_recent_tweets(query=query, tweet_fields=["created_at", "author_id", "text"], max_results=100)
+            if not response.data:
+                self.result_label.configure(text="No tweets found for this keyword. Try another.")
+                self.status_label.configure(text="Status: No data", text_color="gray")
+                return
+            for tweet in response.data:
+                tweets.append(tweet.text)
+                tweet_data.append((tweet.created_at.strftime("%Y-%m-%d %H:%M"), tweet.author_id, tweet.text))
 
-        # Display the SHAP bar chart
-        self.plot_shap_values(token_shap_map)
+        except tweepy.TooManyRequests as e:
+            # Rate limit error
+            reset_time = int(e.response.headers.get('x-rate-limit-reset', time.time() + 60))
+            wait_seconds = max(0, reset_time - int(time.time()))
+            self.result_label.configure(text=f"Rate limit reached. Try again in {wait_seconds} seconds.")
+            self.status_label.configure(text=f"Status: Rate limit hit ({wait_seconds}s cooldown)", text_color="red")
+            self.start_countdown(wait_seconds)
+            return
 
-    def analyze_and_explain(self, text):
-        """Perform sentiment analysis and explain it using SHAP."""
-        # Tokenize input and convert to tensor
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
-        outputs = self.model(**inputs)
+        except Exception as e:
+            self.result_label.configure(text=f"Failed to fetch tweets via Tweepy. Details: {str(e)}")
+            self.status_label.configure(text="Status: API error", text_color="red")
+            return
 
-        # Calculate probabilities
-        probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
-        sentiment_scores = {
-            "Negative": probabilities[0].item() * 100,
-            "Neutral": probabilities[1].item() * 100,
-            "Positive": probabilities[2].item() * 100
-        }
+        # Sentiment analysis
+        sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
+        results = []
+        for date, user, text in tweet_data:
+            inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            probs = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
+            pred = torch.argmax(probs).item()
+            label = ["Negative", "Neutral", "Positive"][pred]
+            sentiments[label] += 1
+            results.append([date, user, label, text])
 
-        # Define the SHAP explainer with a wrapper function
-        def forward_with_preprocessing(token_ids):
-            token_ids = torch.tensor(token_ids, dtype=torch.long).to(self.model.device)  # Fix: Convert to torch.long
-            attention_mask = (token_ids != self.tokenizer.pad_token_id).long()  # Create attention mask
-            inputs = {"input_ids": token_ids, "attention_mask": attention_mask}
-            outputs = self.model(**inputs)
-            return torch.nn.functional.softmax(outputs.logits, dim=1).detach().numpy()
+        self.result_label.configure(text=f"Analyzed {len(tweets)} tweets. Result below:")
+        self.status_label.configure(text="Status: Analysis complete", text_color="green")
+        self.display_example_tweets(results)
+        self.plot_pie_chart(sentiments)
+        self.save_to_csv(results, keyword)
+        self.update_trend_plot(sentiments)
+        self.schedule_auto_refresh()
 
-        # SHAP explainer for Hugging Face models
-        explainer = shap.Explainer(forward_with_preprocessing, inputs["input_ids"].numpy())
-        shap_values = explainer(inputs["input_ids"].numpy())[0].values.flatten()
+    def display_example_tweets(self, tweet_data):
+        """Show up to 2 example tweets per sentiment."""
+        if hasattr(self, 'example_textbox'):
+            self.example_textbox.destroy()
 
-        # Tokenize input text to get corresponding tokens
-        input_tokens = self.tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+        self.example_textbox = ctk.CTkTextbox(self.scrollable, width=700, height=200)
+        self.example_textbox.pack(pady=10)
+        self.example_textbox.insert("end", "Sample Tweets by Sentiment:\n\n")
 
-        # Aggregate SHAP values for subwords and skip special tokens
-        token_shap_map = self.aggregate_shap_values(input_tokens, shap_values)
+        grouped = {"Positive": [], "Neutral": [], "Negative": []}
+        for date, user, label, text in tweet_data:
+            if len(grouped[label]) < 2:
+                grouped[label].append(f"@{user} ({date}): {text[:120]}...")
 
-        return sentiment_scores, token_shap_map
+        for sentiment, examples in grouped.items():
+            self.example_textbox.insert("end", f"{sentiment} Tweets:\n")
+            for ex in examples:
+                self.example_textbox.insert("end", f"  - {ex}\n")
+            self.example_textbox.insert("end", "\n")
+        self.example_textbox.configure(state="disabled")
 
-    def aggregate_shap_values(self, tokens, shap_values):
-        """Aggregate SHAP values by combining subwords and skipping special tokens."""
-        token_shap_map = {}
-        current_word = ""
-        current_shap_value = 0.0
+    def plot_pie_chart(self, sentiments):
+        """Display pie chart of positive, neutral, negative tweet counts."""
+        if hasattr(self, 'canvas') and self.canvas:
+            self.canvas.get_tk_widget().destroy()
 
-        for token, shap_value in zip(tokens, shap_values):
-            # Skip special tokens
-            if token in ["<s>", "</s>", "<pad>"]:
-                continue
+        labels = list(sentiments.keys())
+        values = list(sentiments.values())
 
-            # Handle subwords (identified by leading "Ġ" for RoBERTa or "##" for BERT)
-            if token.startswith("Ġ") or current_word == "":
-                # If a new word starts, save the previous one
-                if current_word:
-                    token_shap_map[current_word] = current_shap_value
-                # Start a new word
-                current_word = token.replace("Ġ", "")
-                current_shap_value = shap_value
-            else:
-                # Continue appending to the current word
-                current_word += token.replace("##", "")
-                current_shap_value += shap_value
+        fig, ax = plt.subplots(figsize=(4, 3))
+        fig.patch.set_facecolor("#2B2B2B")
+        ax.set_facecolor("#2B2B2B")
+        wedges, texts, autotexts = ax.pie(
+            values,
+            labels=labels,
+            autopct="%1.1f%%",
+            startangle=90,
+            textprops={"color": "white"}
+        )
+        ax.set_title("Sentiment Distribution", color="white")
 
-        # Save the last word
-        if current_word:
-            token_shap_map[current_word] = current_shap_value
+        self.canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack()
+        plt.close(fig)
 
-        return token_shap_map
+    def update_trend_plot(self, sentiments):
+        """Update line chart of sentiment over time with new counts."""
+        self.time_stamps.append(datetime.now().strftime("%H:%M:%S"))
+        self.sentiment_history.append([
+            sentiments["Positive"],
+            sentiments["Neutral"],
+            sentiments["Negative"]
+        ])
 
-    def format_explanation(self, sentiment_scores, token_shap_map):
-        """Format the sentiment scores and SHAP explanation for display."""
-        explanation = "Sentiment Scores:\n"
-        explanation += f"  Positive: {sentiment_scores['Positive']:.2f}%\n"
-        explanation += f"  Neutral: {sentiment_scores['Neutral']:.2f}%\n"
-        explanation += f"  Negative: {sentiment_scores['Negative']:.2f}%\n\n"
+        if hasattr(self, 'trend_canvas') and self.trend_canvas:
+            self.trend_canvas.get_tk_widget().destroy()
 
-        explanation += "Most Important Words (by SHAP):\n"
-        # Sort by absolute SHAP values and display the top 3
-        important_words = sorted(token_shap_map.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
-        for word, value in important_words:
-            explanation += f"  {word} (Impact: {value:.2f})\n"
+        history = np.array(self.sentiment_history).T
+        fig, ax = plt.subplots(figsize=(6, 3))
+        fig.patch.set_facecolor("#2B2B2B")
+        ax.set_facecolor("#2B2B2B")
+        ax.plot(self.time_stamps, history[0], label="Positive", marker='o')
+        ax.plot(self.time_stamps, history[1], label="Neutral", marker='o')
+        ax.plot(self.time_stamps, history[2], label="Negative", marker='o')
+        ax.set_title("Sentiment Trend Over Time", color="white")
+        ax.set_ylabel("Tweet Count", color="white")
+        ax.set_xlabel("Time", color="white")
+        ax.tick_params(axis='x', rotation=45, labelcolor="white")
+        ax.tick_params(axis='y', labelcolor="white")
+        ax.legend()
 
-        return explanation
+        self.trend_canvas = FigureCanvasTkAgg(fig, master=self.trend_frame)
+        self.trend_canvas.draw()
+        self.trend_canvas.get_tk_widget().pack()
+        plt.close(fig)
 
-    def display_explanation(self, explanation):
-        """Display the explanation in the text area."""
-        self.explanation_text_area.configure(state="normal")  # Temporarily enable text area
-        self.explanation_text_area.delete("1.0", "end")  # Clear existing text
-        self.explanation_text_area.insert("1.0", explanation)  # Display the explanation
-        self.explanation_text_area.configure(state="disabled")  # Make it read-only again
+    def export_trend_chart(self):
+        """Save the current sentiment trend line chart to a PNG."""
+        if not self.time_stamps or not self.sentiment_history:
+            return
 
-    def plot_shap_values(self, token_shap_map):
-        """Visualize SHAP values as a bar chart embedded in the GUI."""
-        # Close previous figure if it exists
-        if self.shap_figure:
-            plt.close(self.shap_figure)
+        history = np.array(self.sentiment_history).T
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.plot(self.time_stamps, history[0], label="Positive", marker='o')
+        ax.plot(self.time_stamps, history[1], label="Neutral", marker='o')
+        ax.plot(self.time_stamps, history[2], label="Negative", marker='o')
+        ax.set_title("Sentiment Trend Over Time")
+        ax.set_ylabel("Tweet Count")
+        ax.set_xlabel("Time")
+        ax.legend()
+        fig.autofmt_xdate()
+        os.makedirs("outputs", exist_ok=True)
+        fig.savefig("outputs/sentiment_trend.png")
+        plt.close(fig)
 
-        # Create new figure
-        self.shap_figure = plt.figure(figsize=(8, 4))
+    def reset_trend_data(self):
+        """Clear the entire history of sentiment data and remove the line chart."""
+        self.time_stamps.clear()
+        self.sentiment_history.clear()
+        if hasattr(self, 'trend_canvas') and self.trend_canvas:
+            self.trend_canvas.get_tk_widget().destroy()
 
-        # Sort tokens by SHAP values and display the top 10
-        sorted_tokens_shap = sorted(token_shap_map.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
-        tokens, shap_values = zip(*sorted_tokens_shap)
-
-        plt.barh(tokens, shap_values, color='skyblue')
-        plt.xlabel("SHAP Value")
-        plt.title("Top 10 Word Contributions to Sentiment")
-        plt.gca().invert_yaxis()  # Ensure the most important words are at the top
-        plt.tight_layout()
-
-        # Embed the plot in the GUI
-        if self.shap_canvas:
-            self.shap_canvas.get_tk_widget().destroy()  # Clear previous canvas if exists
-
-        self.shap_canvas = FigureCanvasTkAgg(self.shap_figure, master=self.canvas_frame)
-        self.shap_canvas.draw()
-        self.shap_canvas.get_tk_widget().pack()
+    def save_to_csv(self, results, keyword):
+        """Save tweet data with sentiments to a CSV under outputs/"""
+        os.makedirs("outputs", exist_ok=True)
+        filename = f"outputs/{keyword.replace('#', '').replace(' ', '_')}_sentiment.csv"
+        with open(filename, mode='w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Username", "Sentiment", "Tweet"])
+            for row in results:
+                writer.writerow(row)
