@@ -1,3 +1,4 @@
+[2025-04-23 00:07:29]
 import customtkinter as ctk
 from tkinter import filedialog
 from datetime import datetime
@@ -170,7 +171,7 @@ class Page2(ctk.CTkFrame):
         totals = {k: sum(v) for k, v in self.sentiment_counts.items()}
         labels, values = zip(*totals.items()) if totals else ([], [])
 
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots(figsize=(4, 3))
         dark = "#2B2B2B"
         fig.patch.set_facecolor(dark)
         ax.set_facecolor(dark)
@@ -186,13 +187,11 @@ class Page2(ctk.CTkFrame):
 
     def update_trend_chart(self):
         """Dark‑theme line chart with inline labels at latest points."""
-        # remove previous chart if it exists
         if self.trend_canvas:
             self.trend_canvas.get_tk_widget().destroy()
         if not self.time_stamps:
             return
 
-        # --- prepare data ------------------------------------------------
         history = np.array([
             self.sentiment_counts["Positive"],
             self.sentiment_counts["Neutral"],
@@ -206,16 +205,11 @@ class Page2(ctk.CTkFrame):
         fig.patch.set_facecolor(dark)
         ax.set_facecolor(dark)
 
-        # plot each sentiment series
         for series, color, label in zip(history, colors, labels):
-            if len(series) == 0:
-                continue
             ax.plot(self.time_stamps, series, marker="o", color=color)
-            # inline label at last data point
-            ax.text(self.time_stamps[-1], series[-1], f" {label}", color=color,
-                    va="center", fontsize=8)
+            if series:
+                ax.text(self.time_stamps[-1], series[-1], f" {label}", color=color, va="center", fontsize=8)
 
-        # formatting
         ax.set_title("Sentiment Trend Over Time", color="white")
         ax.set_xlabel("Time (HH:MM)", color="white")
         ax.set_ylabel("Tweet Count", color="white")
@@ -224,10 +218,9 @@ class Page2(ctk.CTkFrame):
         ax.grid(True, linestyle="--", alpha=0.3, color="white")
         fig.tight_layout()
 
-        # embed in GUI (to the right of the pie chart)
         self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
         self.trend_canvas.draw()
-        self.trend_canvas.get_tk_widget().pack(side="right")
+        self.trend_canvas.get_tk_widget().pack(side="left")
         plt.close(fig)
 
     def _show_samples(self, sample_map):
@@ -241,3 +234,7 @@ class Page2(ctk.CTkFrame):
                 self.example_textbox.insert("end", f"  - {t}\n")
             self.example_textbox.insert("end", "\n")
         self.example_textbox.configure(state="disabled")
+  Negative: 22.42%
+  Neutral: 72.39%
+  Positive: 5.19%
+

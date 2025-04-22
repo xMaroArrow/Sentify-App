@@ -1,0 +1,18 @@
+[2025-04-21 22:35:31]
+demonstrating high-quality colourisation
+  Negative: 0.81%
+  Neutral: 37.98%
+  Positive: 61.21%
+
+[2025-04-21 22:35:38]
+This research paper explores an innovative method for automatically adding colour to black and white images using Generative Adversarial Networks (GANs).
+  Negative: 0.49%
+  Neutral: 49.55%
+  Positive: 49.96%
+
+[2025-04-21 22:36:02]
+he authors developed a GAN-based model capable of transforming greyscale images into realistic colour versions, emphasising efficient training with smaller datasets and reduced training times. A key aspect of their work includes a user-friendly graphical interface (GUI) that allows for easy image selection, processing, and real-time viewing of the colourised results.
+  Negative: 0.31%
+  Neutral: 15.31%
+  Positive: 84.38%
+

@@ -1,0 +1,6 @@
+[2025-04-20 19:41:58]
+https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&scope=openId%20profile%20openid%20offline_access&redirect_uri=https%3A%2F%2Fteams.microsoft.com%2Fv2&client-request-id=01965413-f4b7-7f52-9bf0-ec78bacc9f34&response_mode=fragment&response_type=code&x-client-SKU=msal.js.browser&x-client-VER=3.28.1&client_info=1&code_challenge=zaUfBaTfwXoyyEOh9FDPNuNafapqTp2b7p80Ta_Knjk&code_challenge_method=S256&nonce=01965413-f4b7-7890-b198-d1cc520b5e03&state=eyJpZCI6IjAxOTY1NDEzLWY0YjctNzBlZS1iNzViLTc5NWMwODc1NTZhOCIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D%7Chttps%3A%2F%2Fteams.microsoft.com%2Fv2%2F%3Fenablemcasfort21%3Dtrue
+  Negative: 20.58%
+  Neutral: 75.73%
+  Positive: 3.69%
+
