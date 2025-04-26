@@ -1,0 +1,32 @@
+[2025-04-26 21:58:57]
+Traceback (most recent call last):
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 1921, in __call__
+    return self.func(*args)
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 839, in callit
+    func(*args)
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page2.py", line 759, in update_trend_chart
+    matplotlib.patheffects.withStroke(
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\site-packages\matplotlib\_api\__init__.py", line 218, in __getattr__
+    raise AttributeError(
+AttributeError: module 'matplotlib' has no attribute 'patheffects'
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 1921, in __call__
+    return self.func(*args)
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 839, in callit
+    func(*args)
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page2.py", line 811, in _show_samples
+    self.example_textbox.tag_config("heading", foreground="#ffffff", font=("Arial", 12, "bold"))
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\site-packages\customtkinter\windows\widgets\ctk_textbox.py", line 442, in tag_config
+    raise AttributeError("'font' option forbidden, because would be incompatible with scaling")
+AttributeError: 'font' option forbidden, because would be incompatible with scaling
+  Negative: 38.16%
+  Neutral: 58.09%
+  Positive: 3.75%
+
+[2025-04-26 22:00:20]
+import matplotlib.patheffects as path_effects
+  Negative: 13.18%
+  Neutral: 81.76%
+  Positive: 5.06%
+
