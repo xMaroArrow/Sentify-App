@@ -1,4 +1,4 @@
-# 🔍 SentiMate: Social Media Sentiment Analysis Application
+# 🔍 Sentify: Social Media Sentiment Analysis Application
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.8%2B-brightgreen)
@@ -193,7 +193,7 @@ python main.py
 ## 📂 File Structure
 
 ```
-sentimate/
+sentify/
 │
 ├── main.py               # Application entry point
 │
