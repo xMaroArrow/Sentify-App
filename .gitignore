@@ -171,4 +171,4 @@ cython_debug/
 .pypirc
 
 # Large Data File
-sentiment_analysis_experiment/data/
+sentiment_analysis_experiment/data/sentiment140.csv
