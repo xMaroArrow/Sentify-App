@@ -767,96 +767,96 @@ class Page4(ctk.CTkFrame):
         self.after(0, lambda: self._update_data_summary_append(summary))
         
         def _clean_sentiment_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean and normalize sentiment data for visualization."""
-        # Handle different column naming conventions
-        # Normalize Date/Time column
-        date_cols = [col for col in df.columns if col.lower() in ['date', 'datetime', 'created_at', 'timestamp']]
-        if date_cols:
-            df = df.rename(columns={date_cols[0]: 'Date'})
+            """Clean and normalize sentiment data for visualization."""
+            # Handle different column naming conventions
+            # Normalize Date/Time column
+            date_cols = [col for col in df.columns if col.lower() in ['date', 'datetime', 'created_at', 'timestamp']]
+            if date_cols:
+                df = df.rename(columns={date_cols[0]: 'Date'})
+                
+            # Normalize Sentiment column
+            sentiment_cols = [col for col in df.columns if col.lower() in ['sentiment', 'label', 'polarity', 'class']]
+            if sentiment_cols:
+                df = df.rename(columns={sentiment_cols[0]: 'Sentiment'})
             
-        # Normalize Sentiment column
-        sentiment_cols = [col for col in df.columns if col.lower() in ['sentiment', 'label', 'polarity', 'class']]
-        if sentiment_cols:
-            df = df.rename(columns={sentiment_cols[0]: 'Sentiment'})
-        
-        # Normalize text column
-        text_cols = [col for col in df.columns if col.lower() in ['text', 'tweet', 'content', 'message']]
-        if text_cols:
-            df = df.rename(columns={text_cols[0]: 'Text'})
+            # Normalize text column
+            text_cols = [col for col in df.columns if col.lower() in ['text', 'tweet', 'content', 'message']]
+            if text_cols:
+                df = df.rename(columns={text_cols[0]: 'Text'})
+                
+            # Normalize username column
+            user_cols = [col for col in df.columns if col.lower() in ['username', 'user', 'author', 'screen_name']]
+            if user_cols:
+                df = df.rename(columns={user_cols[0]: 'Username'})
+                
+            # Process Date column
+            if 'Date' in df.columns:
+                # Try different date formats
+                date_formats = [
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%d %H:%M",
+                    "%d/%m/%Y %H:%M:%S",
+                    "%d/%m/%Y %H:%M",
+                    "%m/%d/%Y %H:%M:%S",
+                    "%m/%d/%Y %H:%M"
+                ]
+                
+                for date_format in date_formats:
+                    try:
+                        df['Date'] = pd.to_datetime(df['Date'], format=date_format)
+                        break
+                    except ValueError:
+                        continue
+                        
+                # If none of the formats worked, try pandas default parser
+                if not pd.api.types.is_datetime64_any_dtype(df['Date']):
+                    try:
+                        df['Date'] = pd.to_datetime(df['Date'])
+                    except:
+                        # If all else fails, create a dummy date column
+                        df['Date'] = pd.date_range(
+                            start=datetime.now() - timedelta(days=len(df)),
+                            periods=len(df),
+                            freq='D'
+                        )
             
-        # Normalize username column
-        user_cols = [col for col in df.columns if col.lower() in ['username', 'user', 'author', 'screen_name']]
-        if user_cols:
-            df = df.rename(columns={user_cols[0]: 'Username'})
-            
-        # Process Date column
-        if 'Date' in df.columns:
-            # Try different date formats
-            date_formats = [
-                "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d %H:%M",
-                "%d/%m/%Y %H:%M:%S",
-                "%d/%m/%Y %H:%M",
-                "%m/%d/%Y %H:%M:%S",
-                "%m/%d/%Y %H:%M"
-            ]
-            
-            for date_format in date_formats:
-                try:
-                    df['Date'] = pd.to_datetime(df['Date'], format=date_format)
-                    break
-                except ValueError:
-                    continue
+            # Standardize sentiment labels
+            if 'Sentiment' in df.columns:
+                # Map various sentiment notations to standard format
+                sentiment_map = {
+                    # Positive variations
+                    'positive': 'Positive',
+                    'pos': 'Positive',
+                    '1': 'Positive',
+                    'p': 'Positive',
+                    'good': 'Positive',
                     
-            # If none of the formats worked, try pandas default parser
-            if not pd.api.types.is_datetime64_any_dtype(df['Date']):
-                try:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                except:
-                    # If all else fails, create a dummy date column
-                    df['Date'] = pd.date_range(
-                        start=datetime.now() - timedelta(days=len(df)),
-                        periods=len(df),
-                        freq='D'
+                    # Neutral variations
+                    'neutral': 'Neutral',
+                    'neu': 'Neutral',
+                    '0': 'Neutral',
+                    'n': 'Neutral',
+                    'ok': 'Neutral',
+                    
+                    # Negative variations
+                    'negative': 'Negative',
+                    'neg': 'Negative',
+                    '-1': 'Negative',
+                    'bad': 'Negative'
+                }
+                
+                # Apply mapping for string labels
+                if df['Sentiment'].dtype == object:
+                    df['Sentiment'] = df['Sentiment'].str.lower().map(sentiment_map).fillna(df['Sentiment'])
+                
+                # For numeric labels, try to map to sentiment categories
+                elif pd.api.types.is_numeric_dtype(df['Sentiment']):
+                    # Typical mapping: negative < 0, neutral = 0, positive > 0
+                    df['Sentiment'] = df['Sentiment'].apply(
+                        lambda x: 'Negative' if x < 0 else ('Positive' if x > 0 else 'Neutral')
                     )
-        
-        # Standardize sentiment labels
-        if 'Sentiment' in df.columns:
-            # Map various sentiment notations to standard format
-            sentiment_map = {
-                # Positive variations
-                'positive': 'Positive',
-                'pos': 'Positive',
-                '1': 'Positive',
-                'p': 'Positive',
-                'good': 'Positive',
-                
-                # Neutral variations
-                'neutral': 'Neutral',
-                'neu': 'Neutral',
-                '0': 'Neutral',
-                'n': 'Neutral',
-                'ok': 'Neutral',
-                
-                # Negative variations
-                'negative': 'Negative',
-                'neg': 'Negative',
-                '-1': 'Negative',
-                'bad': 'Negative'
-            }
             
-            # Apply mapping for string labels
-            if df['Sentiment'].dtype == object:
-                df['Sentiment'] = df['Sentiment'].str.lower().map(sentiment_map).fillna(df['Sentiment'])
-            
-            # For numeric labels, try to map to sentiment categories
-            elif pd.api.types.is_numeric_dtype(df['Sentiment']):
-                # Typical mapping: negative < 0, neutral = 0, positive > 0
-                df['Sentiment'] = df['Sentiment'].apply(
-                    lambda x: 'Negative' if x < 0 else ('Positive' if x > 0 else 'Neutral')
-                )
-        
-        return df
+            return df
         
     def _generate_data_summary(self, df: pd.DataFrame) -> str:
         """Generate a summary of the loaded data."""
@@ -1517,7 +1517,6 @@ class Page4(ctk.CTkFrame):
         self.visualization_threads.append(thread)
         
     def _comparison_viz_thread(self, viz_type: str, compare_by: str):
-        try:
         """Generate comparison visualization in a background thread."""
         # Prepare primary data
         df1 = self.current_data.copy()
