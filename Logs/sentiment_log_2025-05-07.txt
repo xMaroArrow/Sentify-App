@@ -63,3 +63,22 @@ Dominant sentiment: Neutral
   Neutral: 72.43%
   Positive: 18.90%
 
+[2025-05-07 22:36:21]
+# Add this right after getting the interval from the dropdown:
+interval = self.time_interval_var.get()
+
+# Then add this adaptive behavior:
+# Check how many data points we have and adjust interval if needed
+timestamp_count = len(set(item["timestamp"] for item in self.data_manager.sentiment_by_time))
+print(f"Found {timestamp_count} unique timestamps")
+
+# Adapt interval based on data density
+if timestamp_count < 5:
+    if interval == "Second":
+        interval = "Minute"
+        self.ti...
+Dominant sentiment: Neutral
+  Negative: 11.00%
+  Neutral: 81.83%
+  Positive: 7.17%
+

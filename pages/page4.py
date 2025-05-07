@@ -16,6 +16,7 @@ from tkinter import filedialog, messagebox
 from matplotlib.lines import Line2D
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+import matplotlib.dates as mdates
 
 # Import the tweepy-based Twitter collector
 try:
@@ -570,7 +571,7 @@ class Page4(ctk.CTkFrame):
         self.time_interval_var = ctk.StringVar(value="Day")
         time_interval_menu = ctk.CTkOptionMenu(
             controls_frame,
-            values=["Hour", "Day", "Week", "Month"],
+            values=["Second", "Minute", "Hour", "Day", "Week", "Month"],
             variable=self.time_interval_var,
             width=100
         )
@@ -1292,8 +1293,13 @@ class Page4(ctk.CTkFrame):
         viz_type = self.time_type_var.get()
         interval = self.time_interval_var.get()
         
+        # Import the necessary module
+        import matplotlib.dates as mdates
+        
         # Map UI interval to pandas interval
         interval_map = {
+            "Second": "1S",
+            "Minute": "1T",
             "Hour": "1H",
             "Day": "1D",
             "Week": "1W",
@@ -1301,17 +1307,61 @@ class Page4(ctk.CTkFrame):
         }
         pandas_interval = interval_map.get(interval, "1D")
         
+        # Adjust the time window based on the selected interval
+        if interval == "Second":
+            last_hours = 1  # Just 1 hour for seconds
+        elif interval == "Minute":
+            last_hours = 24  # 24 hour for minutes
+        elif interval == "Hour":
+            last_hours = 24 *7  # 7 days for hourly data
+        elif interval == "Day":
+            last_hours = 24 * 30  # 30 days for daily data
+        elif interval == "Week":
+            last_hours = 24 * 90  # 90 days for weekly data
+        else:  # Month
+            last_hours = 24 * 365  # 1 year for monthly data
+        
         try:
-            # Get sentiment trend data
-            sentiment_trend = self.data_manager.get_sentiment_trend(
-                time_interval=pandas_interval, 
-                last_hours=24 if interval == "Hour" else 720  # 30 days for non-hourly
-            )
+            # Convert all timestamps to naive datetime objects before grouping
+            data_for_trending = []
+            for item in self.data_manager.sentiment_by_time:
+                # Handle timezone-aware datetimes by converting to naive
+                timestamp = item["timestamp"]
+                if hasattr(timestamp, 'tzinfo') and timestamp.tzinfo is not None:
+                    # Convert to naive datetime by removing timezone info
+                    timestamp = timestamp.replace(tzinfo=None)
+                    
+                data_for_trending.append({
+                    "timestamp": timestamp,
+                    "sentiment": item["sentiment"],
+                    "language": item["language"]
+                })
+                
+            # Create DataFrame for analysis
+            df = pd.DataFrame(data_for_trending)
             
-            if sentiment_trend.empty:
+            if df.empty:
+                messagebox.showinfo("No Trend Data", "No time data available for visualization.")
+                return
+                
+            # Continue with the DataFrame analysis
+            # Filter for recent data
+            cutoff_time = datetime.now() - timedelta(hours=last_hours)
+            df = df[df["timestamp"] > cutoff_time]
+            
+            if df.empty:
                 messagebox.showinfo("No Trend Data", "Not enough time data points for the selected interval.")
                 return
                 
+            # Group by time interval and sentiment
+            df["time_bucket"] = df["timestamp"].dt.floor(pandas_interval)
+            grouped = df.groupby(["time_bucket", "sentiment"]).size().unstack(fill_value=0)
+            
+            # Ensure all sentiment columns exist
+            for sentiment in ["Positive", "Neutral", "Negative"]:
+                if sentiment not in grouped.columns:
+                    grouped[sentiment] = 0
+                    
             # Remove placeholder
             self.trend_placeholder.pack_forget()
             
@@ -1324,7 +1374,7 @@ class Page4(ctk.CTkFrame):
             
             if viz_type == "Line Chart":
                 # Plot lines for each sentiment
-                sentiment_trend.plot(
+                grouped.plot(
                     ax=ax,
                     color=["#4CAF50", "#FFC107", "#F44336"],  # Green, Amber, Red
                     linewidth=2,
@@ -1334,11 +1384,11 @@ class Page4(ctk.CTkFrame):
                 
             elif viz_type == "Area Chart":
                 # Area charts for each sentiment
-                for col in sentiment_trend.columns:
+                for col in grouped.columns:
                     color = {"Positive": "#4CAF50", "Neutral": "#FFC107", "Negative": "#F44336"}.get(col, "#999999")
                     ax.fill_between(
-                        sentiment_trend.index,
-                        sentiment_trend[col],
+                        grouped.index,
+                        grouped[col],
                         alpha=0.7,
                         label=col,
                         color=color
@@ -1346,7 +1396,7 @@ class Page4(ctk.CTkFrame):
                     
             elif viz_type == "Stacked Area":
                 # Stacked area chart
-                sentiment_trend.plot.area(
+                grouped.plot.area(
                     ax=ax,
                     stacked=True,
                     color=["#4CAF50", "#FFC107", "#F44336"],  # Green, Amber, Red
@@ -1355,13 +1405,13 @@ class Page4(ctk.CTkFrame):
                 
             elif viz_type == "Bar Timeline":
                 # Get indices for bar positions
-                indices = np.arange(len(sentiment_trend.index))
+                indices = np.arange(len(grouped.index))
                 bar_width = 0.25
                 
                 # Plot bars for each sentiment
                 ax.bar(
                     indices - bar_width,
-                    sentiment_trend["Positive"].values,
+                    grouped["Positive"].values,
                     bar_width,
                     label="Positive",
                     color="#4CAF50",
@@ -1371,7 +1421,7 @@ class Page4(ctk.CTkFrame):
                 
                 ax.bar(
                     indices,
-                    sentiment_trend["Neutral"].values,
+                    grouped["Neutral"].values,
                     bar_width,
                     label="Neutral",
                     color="#FFC107",
@@ -1381,7 +1431,7 @@ class Page4(ctk.CTkFrame):
                 
                 ax.bar(
                     indices + bar_width,
-                    sentiment_trend["Negative"].values,
+                    grouped["Negative"].values,
                     bar_width,
                     label="Negative",
                     color="#F44336",
@@ -1391,12 +1441,20 @@ class Page4(ctk.CTkFrame):
                 
                 # Set x-ticks to show dates
                 ax.set_xticks(indices)
-                if interval == "Hour":
-                    x_labels = [dt.strftime("%H:%M") for dt in sentiment_trend.index]
+                
+                # Format date labels based on interval
+                if interval == "Second":
+                    x_labels = [dt.strftime("%H:%M:%S") for dt in grouped.index]
+                elif interval == "Minute":
+                    x_labels = [dt.strftime("%H:%M") for dt in grouped.index]
+                elif interval == "Hour":
+                    x_labels = [dt.strftime("%H:%M") for dt in grouped.index]
                 elif interval == "Day":
-                    x_labels = [dt.strftime("%d %b") for dt in sentiment_trend.index]
-                else:
-                    x_labels = [dt.strftime("%b %d") for dt in sentiment_trend.index]
+                    x_labels = [dt.strftime("%d %b") for dt in grouped.index]
+                elif interval == "Week":
+                    x_labels = [dt.strftime("%d %b") for dt in grouped.index]
+                else:  # Month
+                    x_labels = [dt.strftime("%b %Y") for dt in grouped.index]
                     
                 ax.set_xticklabels(x_labels, rotation=45, ha="right")
             
@@ -1405,8 +1463,23 @@ class Page4(ctk.CTkFrame):
             ax.set_xlabel("Time", color='white')
             ax.set_ylabel("Tweet Count", color='white')
             
-            # Format x-axis dates
-            if viz_type != "Bar Timeline":
+            # Format time labels based on interval
+            if interval == "Second":
+                date_format = mdates.DateFormatter("%H:%M:%S")
+                ax.xaxis.set_major_formatter(date_format)
+                # Add more tick marks for seconds
+                if len(grouped.index) < 30:  # Only if we have a reasonable number of data points
+                    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=5))
+            elif interval == "Minute":
+                date_format = mdates.DateFormatter("%H:%M")
+                ax.xaxis.set_major_formatter(date_format)
+                if len(grouped.index) < 30:
+                    ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
+            elif interval == "Hour":
+                date_format = mdates.DateFormatter("%H:%M")
+                ax.xaxis.set_major_formatter(date_format)
+            elif viz_type != "Bar Timeline":
+                # For day/week/month and non-bar charts
                 fig.autofmt_xdate()
             
             # Add grid
@@ -1414,6 +1487,23 @@ class Page4(ctk.CTkFrame):
             
             # Add legend
             ax.legend(title="Sentiment")
+            
+            # Set appropriate x-axis limits
+            if len(grouped.index) > 0:
+                if viz_type != "Bar Timeline":
+                    min_date = grouped.index.min()
+                    max_date = grouped.index.max()
+                    # Add a small buffer
+                    delta = (max_date - min_date) * 0.05
+                    ax.set_xlim(min_date - delta, max_date + delta)
+            
+            # For very granular data, limit the number of displayed ticks
+            if len(grouped.index) > 20 and viz_type != "Bar Timeline":
+                # Only show every nth tick to avoid overcrowding
+                n = max(1, len(grouped.index) // 20)
+                for i, tick in enumerate(ax.xaxis.get_major_ticks()):
+                    if i % n != 0:
+                        tick.set_visible(False)
             
             # Adjust layout
             plt.tight_layout()
@@ -1428,7 +1518,8 @@ class Page4(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Visualization Error", f"Error generating time series visualization: {str(e)}")
-    
+            print(f"Time series visualization error: {e}")
+        
     def _generate_language_viz(self):
         """Generate language distribution visualization."""
         if not self.data_manager.sentiment_data:

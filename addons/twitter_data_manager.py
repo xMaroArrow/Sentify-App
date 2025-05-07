@@ -195,14 +195,32 @@ class TwitterDataManager:
         df = pd.DataFrame(data)
         return df.sort_values(by="total", ascending=False)
         
-    def get_sentiment_trend(self, time_interval='10T', last_hours=24):
+    def get_sentiment_trend(self, time_interval='1D', last_hours=24):
         """Get sentiment trends over time."""
         if not self.sentiment_by_time:
             return pd.DataFrame()
             
-        # Create DataFrame
-        df = pd.DataFrame(self.sentiment_by_time)
+        # Create DataFrame with timezone handling
+        data_with_fixed_times = []
+        for item in self.sentiment_by_time:
+            # Handle timezone-aware datetimes by converting to naive
+            timestamp = item["timestamp"]
+            if hasattr(timestamp, 'tzinfo') and timestamp.tzinfo is not None:
+                # Convert to naive datetime by removing timezone info
+                timestamp = timestamp.replace(tzinfo=None)
+                
+            data_with_fixed_times.append({
+                "timestamp": timestamp,
+                "sentiment": item["sentiment"],
+                "language": item["language"]
+            })
         
+        # Create DataFrame
+        df = pd.DataFrame(data_with_fixed_times)
+        
+        if df.empty:
+            return pd.DataFrame()
+            
         # Filter for recent data
         cutoff_time = datetime.now() - timedelta(hours=last_hours)
         df = df[df["timestamp"] > cutoff_time]
@@ -210,9 +228,16 @@ class TwitterDataManager:
         if df.empty:
             return pd.DataFrame()
             
-        # Group by time interval and sentiment
-        df["time_bucket"] = df["timestamp"].dt.floor(time_interval)
-        grouped = df.groupby(["time_bucket", "sentiment"]).size().unstack(fill_value=0)
+        # Handle different time intervals
+        try:
+            # Group by time interval and sentiment
+            df["time_bucket"] = df["timestamp"].dt.floor(time_interval)
+            grouped = df.groupby(["time_bucket", "sentiment"]).size().unstack(fill_value=0)
+        except Exception as e:
+            print(f"Error grouping by time: {e}")
+            # Fallback to daily grouping if there's an error
+            df["time_bucket"] = df["timestamp"].dt.floor("1D")
+            grouped = df.groupby(["time_bucket", "sentiment"]).size().unstack(fill_value=0)
         
         # Ensure all sentiment columns exist
         for sentiment in ["Positive", "Neutral", "Negative"]:
