@@ -4,6 +4,7 @@ from pages.page1 import Page1
 from pages.home_page import HomePage
 from pages.page2 import Page2  
 from pages.page3 import Page3  
+from pages.page4 import Page4
 
 class MyApp(ctk.CTk):
     def __init__(self):
@@ -11,7 +12,7 @@ class MyApp(ctk.CTk):
 
         # Configure the main window
         self.title("Sentiment Analysis for Social Media")
-        self.geometry("1000x850")
+        self.geometry("1150x850")
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
 
@@ -71,6 +72,10 @@ class MyApp(ctk.CTk):
 
         page3_button = ctk.CTkButton(self.sidebar_frame, text="Page 3", command=lambda: self.show_page("Page3"))  
         page3_button.pack(pady=5)
+        
+        page4_button = ctk.CTkButton(self.sidebar_frame, text="Page 4", command=lambda: self.show_page("Page4"))  
+        page4_button.pack(pady=5)
+        
 
     def initialize_pages(self):
         """Initialize all pages."""
@@ -78,6 +83,7 @@ class MyApp(ctk.CTk):
         self.pages["Page1"] = Page1(self.container)
         self.pages["Page2"] = Page2(self.container)
         self.pages["Page3"] = Page3(self.container)  
+        self.pages["Page4"] = Page4(self.container) 
 
         # Hide all pages initially
         for page in self.pages.values():
