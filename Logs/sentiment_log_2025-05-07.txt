@@ -1,0 +1,7 @@
+[2025-05-07 19:50:20]
+Loading sentiment analysis model
+Dominant sentiment: Neutral
+  Negative: 13.35%
+  Neutral: 81.87%
+  Positive: 4.78%
+
