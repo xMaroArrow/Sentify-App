@@ -16805,13 +16805,13 @@
     "positive"
   ],
   "inference_time": {
-    "average_batch_time": 1.1422050604744562,
-    "samples_per_second": 27.79363605064478,
-    "total_inference_time": 71.95891880989075
+    "average_batch_time": 1.1611035589187864,
+    "samples_per_second": 27.341257807868132,
+    "total_inference_time": 73.14952421188354
   },
-  "model_name": "pretrained_twitter-roberta-base-sentiment_1746813278",
+  "model_name": "pretrained_twitter-roberta-base-sentiment_1746815695",
   "model_type": "transformer",
   "pretrained_model": "cardiffnlp/twitter-roberta-base-sentiment",
-  "evaluation_time": 71.99772191047668,
+  "evaluation_time": 73.18164134025574,
   "is_pretrained_evaluation": true
 }

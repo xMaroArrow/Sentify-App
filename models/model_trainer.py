@@ -634,62 +634,71 @@ class ModelTrainer:
         print(f"Model: {pretrained_model}")
         print(f"This will evaluate the model on the test set without any fine-tuning.")
         
-        # Prepare test data with the model's tokenizer
-        print("Preparing test data...")
-        dataloaders = data_processor.prepare_pytorch_datasets(
-            batch_size=batch_size,
-            tokenizer_name=pretrained_model,
-            max_length=max_seq_length
-        )
-        test_loader = dataloaders["test"]
+        # Prepare test data with the model's tokenizer directly from Hugging Face
+        print(f"Preparing test data with tokenizer from Hugging Face: {pretrained_model}")
         
-        # Get number of classes
-        num_classes = len(data_processor.class_names)
-        print(f"Test dataset prepared with {num_classes} classes")
-        
-        # Load model with ignore_mismatched_sizes=True to handle class count differences
         try:
-            print(f"Loading pre-trained model: {pretrained_model}")
-            from transformers import AutoModelForSequenceClassification, AutoConfig
+            # Import the required classes from transformers
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
             
-            # First, get the configuration
-            config = AutoConfig.from_pretrained(pretrained_model)
+            # Load the tokenizer directly from Hugging Face
+            tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
+            print(f"Tokenizer loaded successfully from Hugging Face")
             
-            # Modify the config to match our number of labels
-            config.num_labels = num_classes
-            print(f"Setting model output to {num_classes} classes (was originally {getattr(config, 'num_labels', 'unknown')})")
-            
-            # Load the model with the updated config and ignore size mismatches
-            model = AutoModelForSequenceClassification.from_pretrained(
-                pretrained_model,
-                config=config,
-                ignore_mismatched_sizes=True  # This is the key parameter to handle size mismatches
+            # Prepare datasets using the loaded tokenizer
+            dataloaders = data_processor.prepare_pytorch_datasets(
+                batch_size=batch_size,
+                tokenizer=tokenizer,  # Pass the tokenizer object directly
+                max_length=max_seq_length
             )
-            print("Model loaded successfully")
-        except Exception as e:
-            print(f"Error loading model: {e}")
+            test_loader = dataloaders["test"]
+            print(f"Test dataset prepared with tokenizer")
             
-            # Attempt alternative loading method if the first one fails
+            # Get number of classes
+            num_classes = len(data_processor.class_names)
+            print(f"Number of classes in test data: {num_classes}")
+            
+            # First try loading with default configuration
+            print(f"Loading model from Hugging Face: {pretrained_model}")
             try:
-                print("Attempting alternative loading method...")
-                # Load the model without pretrained weights for the classifier head
+                # Load the model configuration
+                from transformers import AutoConfig
+                config = AutoConfig.from_pretrained(pretrained_model)
+                original_labels = getattr(config, "num_labels", -1)
+                print(f"Original model has {original_labels} labels, we need {num_classes}")
+                
+                # Modify config for our number of classes
+                config.num_labels = num_classes
+                
+                # Load the model with our updated config
                 model = AutoModelForSequenceClassification.from_pretrained(
                     pretrained_model,
-                    num_labels=num_classes,
+                    config=config,
                     ignore_mismatched_sizes=True
                 )
-                print("Alternative loading method successful")
-            except Exception as e2:
-                print(f"Alternative loading also failed: {e2}")
-                raise RuntimeError(f"Failed to load pre-trained model: {str(e)}\nAlso tried alternative method: {str(e2)}")
-        
-        # Move model to device
-        model.to(self.device)
-        print(f"Model moved to {self.device}")
-        
-        # Print model summary (parameter count)
-        total_params = sum(p.numel() for p in model.parameters())
-        print(f"Model Parameters: {total_params:,}")
+                print(f"Model loaded successfully from Hugging Face")
+            except Exception as e:
+                print(f"Error loading model with config modification: {e}")
+                
+                # Try alternative loading method
+                try:
+                    print("Attempting alternative loading method...")
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        pretrained_model,
+                        num_labels=num_classes,
+                        ignore_mismatched_sizes=True
+                    )
+                    print("Alternative loading successful")
+                except Exception as e2:
+                    print(f"Alternative loading failed: {e2}")
+                    raise RuntimeError(f"Could not load model: {str(e)}\nAlso tried: {str(e2)}")
+            
+            # Move model to device
+            model.to(self.device)
+            print(f"Model moved to {self.device}")
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to load pre-trained model: {str(e)}")
         
         # Create a directory for the model to store evaluation results
         model_path = os.path.join(self.model_dir, model_name)

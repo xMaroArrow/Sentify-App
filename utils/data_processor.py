@@ -397,8 +397,9 @@ class DataProcessor:
         }
     
     def prepare_pytorch_datasets(self, batch_size: int = 32, 
-                                 tokenizer_name: str = None,
-                                 max_length: int = 128):
+                            tokenizer_name: str = None,
+                            tokenizer = None,  # Add this parameter
+                            max_length: int = 128):
         """
         Create PyTorch DataLoaders for deep learning models.
         
@@ -413,13 +414,89 @@ class DataProcessor:
         if self.train_data is None:
             raise ValueError("Data not split. Call prepare_train_test_split() first.")
         
-        # If tokenizer specified, use transformers tokenizer
-        if tokenizer_name:
-            return self._prepare_transformer_datasets(
-                tokenizer_name=tokenizer_name,
+        # If tokenizer or tokenizer_name specified, use transformers tokenizer
+        if tokenizer or tokenizer_name:
+            if tokenizer is None:
+                # Load tokenizer by name if not provided
+                from transformers import AutoTokenizer
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+            
+            self.tokenizer = tokenizer
+            self.max_seq_length = max_length
+            
+            # Tokenize train data
+            train_encodings = tokenizer(
+                list(self.train_data["texts"]),
+                truncation=True,
+                padding="max_length",
                 max_length=max_length,
-                batch_size=batch_size
+                return_tensors="pt"
             )
+            
+            train_dataset = TensorDataset(
+                train_encodings["input_ids"],
+                train_encodings["attention_mask"],
+                torch.tensor(self.train_data["labels"])
+            )
+            
+            # Tokenize test data
+            test_encodings = tokenizer(
+                list(self.test_data["texts"]),
+                truncation=True,
+                padding="max_length",
+                max_length=max_length,
+                return_tensors="pt"
+            )
+            
+            test_dataset = TensorDataset(
+                test_encodings["input_ids"],
+                test_encodings["attention_mask"],
+                torch.tensor(self.test_data["labels"])
+            )
+            
+            # Tokenize validation data if available
+            val_dataset = None
+            if self.val_data is not None:
+                val_encodings = tokenizer(
+                    list(self.val_data["texts"]),
+                    truncation=True,
+                    padding="max_length",
+                    max_length=max_length,
+                    return_tensors="pt"
+                )
+                
+                val_dataset = TensorDataset(
+                    val_encodings["input_ids"],
+                    val_encodings["attention_mask"],
+                    torch.tensor(self.val_data["labels"])
+                )
+            
+            # Create dataloaders
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=batch_size,
+                shuffle=True
+            )
+            
+            test_loader = DataLoader(
+                test_dataset,
+                batch_size=batch_size,
+                shuffle=False
+            )
+            
+            val_loader = None
+            if val_dataset is not None:
+                val_loader = DataLoader(
+                    val_dataset,
+                    batch_size=batch_size,
+                    shuffle=False
+                )
+            
+            return {
+                "train": train_loader,
+                "test": test_loader,
+                "val": val_loader
+            }
         else:
             return self._prepare_basic_pytorch_datasets(batch_size=batch_size)
     
