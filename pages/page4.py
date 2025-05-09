@@ -2223,7 +2223,25 @@ class Page4(ctk.CTkFrame):
         
         # Close the window
         window.destroy()
+        
 
     def _get_language_filter(self):
         """Get the current language filter."""
         return self.config["language_filter"]
+    
+    
+    def cancel_page_tasks(self):
+        """Cancel all pending after callbacks for this page."""
+        try:
+            # Cancel countdown timer
+            if hasattr(self, 'countdown_job') and self.countdown_job:
+                try:
+                    self.after_cancel(self.countdown_job)
+                except Exception:
+                    pass
+                self.countdown_job = None
+                
+            # Mark as not running
+            self.running = False
+        except Exception as e:
+            print(f"Error canceling page tasks: {e}")

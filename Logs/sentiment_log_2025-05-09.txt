@@ -1,0 +1,106 @@
+[2025-05-09 17:13:24]
+Traceback (most recent call last):
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 1921, in __call__
+    return self.func(*args)
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 839, in callit
+    func(*args)
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page5.py", line 338, in <lambda>
+    self.after(0, lambda: messagebox.showerror("Error", f"Failed to process data: {str(e)}"))
+NameEr...
+Dominant sentiment: Neutral
+  Negative: 44.69%
+  Neutral: 51.73%
+  Positive: 3.58%
+
+[2025-05-09 17:47:58]
+TypeError: Page5._viz_thread() takes 4 positional arguments but 6 were given
+Dominant sentiment: Neutral
+  Negative: 45.05%
+  Neutral: 51.88%
+  Positive: 3.07%
+
+[2025-05-09 17:53:47]
+# Thread tracking
+        self.active_threads = []
+        self.visualization_lock = threading.Lock()
+Dominant sentiment: Neutral
+  Negative: 19.68%
+  Neutral: 74.64%
+  Positive: 5.67%
+
+[2025-05-09 19:16:51]
+Traceback (most recent call last):
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 1921, in __call__
+    return self.func(*args)
+  File "C:\Users\Custom_PC_bh\miniconda3\envs\s_app\lib\tkinter\__init__.py", line 839, in callit
+    func(*args)
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page5.py", line 718, in <lambda>
+    self.after(0, lambda: messagebox.showerror("Error", f"Failed to process data: {str(e)}"))
+NameEr...
+Dominant sentiment: Neutral
+  Negative: 43.70%
+  Neutral: 52.69%
+  Positive: 3.60%
+
+[2025-05-09 19:20:14]
+Loading data from D:/xMaro/University Of Bahrain/AI Systems Master/Thesis/Sentify-App/sentiment_analysis_experiment/data/sentiment140.csv
+Error loading CSV file: 'utf-8' codec can't decode bytes in position 232719-232720: invalid continuation byte
+Dominant sentiment: Negative
+  Negative: 85.86%
+  Neutral: 13.42%
+  Positive: 0.72%
+
+[2025-05-09 19:26:27]
+Trying to load with utf-8 encoding...
+Error loading CSV file: read_csv() got an unexpected keyword argument 'error_bad_lines'
+Trying to load with utf-8 encoding...
+Error loading CSV file: read_csv() got an unexpected keyword argument 'error_bad_lines'
+Dominant sentiment: Negative
+  Negative: 68.10%
+  Neutral: 29.31%
+  Positive: 2.59%
+
+[2025-05-09 19:38:33]
+D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\data
+Dominant sentiment: Neutral
+  Negative: 9.21%
+  Neutral: 87.30%
+  Positive: 3.49%
+
+[2025-05-09 19:39:46]
+https://www.kaggle.com/datasets/saurabhshahane/twitter-sentiment-dataset
+Dominant sentiment: Neutral
+  Negative: 14.51%
+  Neutral: 82.28%
+  Positive: 3.22%
+
+[2025-05-09 19:44:54]
+Error loading CSV file: Could not find text column. Available columns: ['clean_text', 'category']
+Dominant sentiment: Negative
+  Negative: 71.75%
+  Neutral: 26.30%
+  Positive: 1.94%
+
+[2025-05-09 20:26:01]
+# Report progress every
+Dominant sentiment: Neutral
+  Negative: 5.43%
+  Neutral: 88.36%
+  Positive: 6.21%
+
+[2025-05-09 20:36:03]
+# Add a "Pre-trained Evaluation" button
+    pretrained_frame = ctk.CTkFrame(model_frame)
+    pretrained_frame.pack(fill="x", padx=10, pady=5)
+    
+    pretrained_label = ctk.CTkLabel(
+        pretrained_frame,
+        text="Evaluate Pre-trained Model:",
+        font=("Arial", 14, "bold")
+    )
+    pretrained_label.pack(side="left", padx=10, pady=10)
+Dominant sentiment: Neutral
+  Negative: 13.50%
+  Neutral: 80.98%
+  Positive: 5.52%
+

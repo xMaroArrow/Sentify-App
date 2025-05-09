@@ -1,0 +1,10 @@
+{
+  "model_type": "pytorch",
+  "original_path": "D:/xMaro/University Of Bahrain/AI Systems Master/Thesis/Sentify-App/models/model_BidLSTM",
+  "save_time": "2025-05-09 21:04:03",
+  "model_name": "local_model_model_BidLSTM_1746813843",
+  "pytorch_version": "2.5.1+cpu",
+  "cuda_version": "N/A",
+  "device": "cpu",
+  "is_local_model": true
+}
