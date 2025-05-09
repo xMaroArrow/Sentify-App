@@ -3,7 +3,8 @@ import customtkinter as ctk
 from pages.page1 import Page1  
 from pages.home_page import HomePage
 from pages.page2 import Page2  
-from pages.page3 import Page3  
+from pages.page3 import Page3 
+
 
 class MyApp(ctk.CTk):
     def __init__(self):
@@ -71,6 +72,7 @@ class MyApp(ctk.CTk):
 
         page3_button = ctk.CTkButton(self.sidebar_frame, text="Page 3", command=lambda: self.show_page("Page3"))  
         page3_button.pack(pady=5)
+
 
     def initialize_pages(self):
         """Initialize all pages."""
