@@ -1,0 +1,7 @@
+{
+  "model_type": "transformer",
+  "pretrained_model": "cardiffnlp/twitter-roberta-base-sentiment",
+  "max_seq_length": 128,
+  "num_classes": 3,
+  "is_pretrained_evaluation": true
+}

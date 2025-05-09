@@ -1,0 +1,11 @@
+{
+  "model_type": "transformer",
+  "pretrained_model": "cardiffnlp/twitter-roberta-base-sentiment",
+  "save_time": "2025-05-09 20:54:40",
+  "model_name": "pretrained_twitter-roberta-base-sentiment_1746813278",
+  "pytorch_version": "2.5.1+cpu",
+  "cuda_version": "N/A",
+  "device": "cpu",
+  "is_pretrained_evaluation": true,
+  "num_classes": 3
+}

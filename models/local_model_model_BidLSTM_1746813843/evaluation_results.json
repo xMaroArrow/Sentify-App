@@ -1,0 +1,157 @@
+{
+  "confusion_matrix": [
+    [
+      0,
+      0,
+      474
+    ],
+    [
+      0,
+      0,
+      695
+    ],
+    [
+      0,
+      0,
+      831
+    ]
+  ],
+  "classification_report": {
+    "negative": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 474.0
+    },
+    "neutral": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 695.0
+    },
+    "positive": {
+      "precision": 0.4155,
+      "recall": 1.0,
+      "f1-score": 0.5870717061109149,
+      "support": 831.0
+    },
+    "accuracy": 0.4155,
+    "macro avg": {
+      "precision": 0.13849999999999998,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.1956905687036383,
+      "support": 2000.0
+    },
+    "weighted avg": {
+      "precision": 0.17264024999999997,
+      "recall": 0.4155,
+      "f1-score": 0.24392829388908513,
+      "support": 2000.0
+    }
+  },
+  "accuracy": 0.4155,
+  "precision": {
+    "0": 0.0,
+    "1": 0.0,
+    "2": 0.4155
+  },
+  "recall": {
+    "0": 0.0,
+    "1": 0.0,
+    "2": 1.0
+  },
+  "f1": {
+    "0": 0.0,
+    "1": 0.0,
+    "2": 0.5870717061109149
+  },
+  "fpr": {
+    "0": [
+      0.0,
+      0.000655307994757536,
+      1.0
+    ],
+    "1": [
+      0.0,
+      1.0
+    ],
+    "2": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "tpr": {
+    "0": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "1": [
+      0.0,
+      1.0
+    ],
+    "2": [
+      0.0,
+      0.0012033694344163659,
+      1.0
+    ]
+  },
+  "roc_auc": {
+    "0": 0.4996723460026212,
+    "1": 0.5,
+    "2": 0.5006016847172082
+  },
+  "precision_curve": {
+    "0": [
+      0.237,
+      0.0,
+      1.0
+    ],
+    "1": [
+      0.3475,
+      1.0
+    ],
+    "2": [
+      0.4155,
+      1.0,
+      1.0
+    ]
+  },
+  "recall_curve": {
+    "0": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "1": [
+      1.0,
+      0.0
+    ],
+    "2": [
+      1.0,
+      0.0012033694344163659,
+      0.0
+    ]
+  },
+  "average_precision": {
+    "0": 0.4123333333333334,
+    "1": 0.67375,
+    "2": 0.8051666666666666
+  },
+  "classes": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "inference_time": {
+    "average_batch_time": 0.07395236454312763,
+    "samples_per_second": 429.27676406503616,
+    "total_inference_time": 4.658998966217041
+  },
+  "model_name": "local_model_model_BidLSTM_1746813843",
+  "model_type": "pytorch",
+  "original_path": "D:/xMaro/University Of Bahrain/AI Systems Master/Thesis/Sentify-App/models/model_BidLSTM",
+  "evaluation_time": 4.696270942687988,
+  "is_local_model": true
+}
