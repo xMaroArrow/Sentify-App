@@ -1,0 +1,84 @@
+[2025-05-07 21:21:14]
+#IndiaPakistanWar
+Dominant sentiment: Neutral
+  Negative: 35.01%
+  Neutral: 61.98%
+  Positive: 3.02%
+
+[2025-05-07 21:22:40]
+Error initializing XLM-RoBERTa model: 
+ requires the protobuf library but it was not found in your environment. Checkout the instructions on the
+installation page of its repo: https://github.com/protocolbuffers/protobuf/tree/master/python#installation and follow the ones
+that match your environment. Please note that you may need to restart your runtime after installation.
+Dominant sentiment: Negative
+  Negative: 53.01%
+  Neutral: 42.61%
+  Positive: 4.37%
+
+[2025-05-07 21:23:53]
+Loading XLM-RoBERTa multilingual sentiment model...
+Error initializing XLM-RoBERTa model: Converting from Tiktoken failed, if a converter for SentencePiece is available, provide a model path with a SentencePiece tokenizer.model file.Currently available slow->fast convertors: ['AlbertTokenizer', 'BartTokenizer', 'BarthezTokenizer', 'BertTokenizer', 'BigBirdTokenizer', 'BlenderbotTokenizer', 'CamembertTokenizer', 'CLIPTokenizer', 'CodeGenTokenizer', 'ConvBertTokenizer', 'DebertaTokenizer', 'Deber...
+Dominant sentiment: Neutral
+  Negative: 26.01%
+  Neutral: 67.16%
+  Positive: 6.83%
+
+[2025-05-07 21:28:55]
+Epstein
+Dominant sentiment: Neutral
+  Negative: 31.98%
+  Neutral: 62.14%
+  Positive: 5.88%
+
+[2025-05-07 21:36:12]
+2025-05-07T18:28:50+00:00,467780904,@LizCrokin How many years has the Epstein files been in the possession of law enforcement? The FBI?? I call bullshit!,1920184061508702539
+Dominant sentiment: Negative
+  Negative: 82.36%
+  Neutral: 16.28%
+  Positive: 1.36%
+
+[2025-05-07 21:36:14]
+created_at,username,text,tweet_id
+2025-05-07T18:28:50+00:00,467780904,@LizCrokin How many years has the Epstein files been in the possession of law enforcement? The FBI?? I call bullshit!,1920184061508702539
+Dominant sentiment: Negative
+  Negative: 79.38%
+  Neutral: 19.17%
+  Positive: 1.45%
+
+[2025-05-07 21:49:56]
+Error initializing sentiment model: cardiffnlp/twitter-roberta-base-sentiment-multilingual is not a local folder and is not a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `huggingface-cli login` or by passing `token=<your_token>`
+Attempting to load fallback model...
+Fallback model loaded successfully
+Error in sentiment analysis: index 2 is out of bounds for ...
+Dominant sentiment: Neutral
+  Negative: 47.98%
+  Neutral: 48.24%
+  Positive: 3.78%
+
+[2025-05-07 21:54:38]
+multilingual
+Dominant sentiment: Neutral
+  Negative: 8.68%
+  Neutral: 72.43%
+  Positive: 18.90%
+
+[2025-05-07 22:36:21]
+# Add this right after getting the interval from the dropdown:
+interval = self.time_interval_var.get()
+
+# Then add this adaptive behavior:
+# Check how many data points we have and adjust interval if needed
+timestamp_count = len(set(item["timestamp"] for item in self.data_manager.sentiment_by_time))
+print(f"Found {timestamp_count} unique timestamps")
+
+# Adapt interval based on data density
+if timestamp_count < 5:
+    if interval == "Second":
+        interval = "Minute"
+        self.ti...
+Dominant sentiment: Neutral
+  Negative: 11.00%
+  Neutral: 81.83%
+  Positive: 7.17%
+

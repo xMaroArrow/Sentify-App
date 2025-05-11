@@ -900,16 +900,70 @@ Requirements:
         except Exception as e:
             print(f"Error updating stats: {e}")
             self.stats_text.configure(text="Error calculating statistics")
+            
+            
+    def cancel_page_tasks(self):
+        """Cancel all pending after callbacks for this page."""
+        try:
+            # Cancel countdown timer
+            if hasattr(self, 'countdown_job') and self.countdown_job:
+                try:
+                    self.after_cancel(self.countdown_job)
+                except Exception:
+                    pass
+                self.countdown_job = None
+                
+            # Mark as not running
+            self.running = False
+        except Exception as e:
+            print(f"Error canceling page tasks: {e}")
+            
 
     def destroy(self):
         """Clean up resources when page is destroyed."""
-        # Stop all monitoring processes
-        self.stop_monitoring()
-        
-        # Close matplotlib figures to prevent memory leaks
-        if self.canvas:
-            self.canvas.get_tk_widget().destroy()
-        if self.trend_canvas:
-            self.trend_canvas.get_tk_widget().destroy()
+        try:
+            # Stop all monitoring processes first
+            try:
+                self.running = False
+                
+                # Stop collector
+                if hasattr(self, 'collector') and self.collector:
+                    self.collector.stop()
+                    self.collector = None
+                
+                # Cancel countdown timer
+                if hasattr(self, 'countdown_job') and self.countdown_job:
+                    try:
+                        self.after_cancel(self.countdown_job)
+                    except Exception:
+                        pass
+                    self.countdown_job = None
+            except Exception as e:
+                print(f"Error stopping monitoring: {e}")
+                
+            # Close matplotlib figures to prevent memory leaks
+            try:
+                if hasattr(self, 'canvas') and self.canvas:
+                    try:
+                        self.canvas.get_tk_widget().destroy()
+                    except Exception:
+                        pass
+                    self.canvas = None
+                    
+                if hasattr(self, 'trend_canvas') and self.trend_canvas:
+                    try:
+                        self.trend_canvas.get_tk_widget().destroy()
+                    except Exception:
+                        pass
+                    self.trend_canvas = None
+            except Exception as e:
+                print(f"Error closing figures: {e}")
+                
+        except Exception as e:
+            print(f"Error during Page2 destruction: {e}")
             
-        super().destroy()
+        # Call parent's destroy method
+        try:
+            super().destroy()
+        except Exception as e:
+            print(f"Error calling super().destroy(): {e}")
