@@ -692,6 +692,23 @@ Tips:
                 print(f"Hotkey error: {e}")
                 # If there's an error, sleep briefly to avoid CPU spin
                 time.sleep(1)
+                
+                
+    def cancel_page_tasks(self):
+        """Cancel all pending after callbacks for this page."""
+        try:
+            # Cancel countdown timer
+            if hasattr(self, 'countdown_job') and self.countdown_job:
+                try:
+                    self.after_cancel(self.countdown_job)
+                except Exception:
+                    pass
+                self.countdown_job = None
+                
+            # Mark as not running
+            self.running = False
+        except Exception as e:
+            print(f"Error canceling page tasks: {e}")
 
     def destroy(self):
         """Clean up resources when the page is destroyed."""
