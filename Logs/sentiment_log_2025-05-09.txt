@@ -104,3 +104,10 @@ Dominant sentiment: Neutral
   Neutral: 80.98%
   Positive: 5.52%
 
+[2025-05-09 22:03:46]
+clean_text,category
+Dominant sentiment: Neutral
+  Negative: 9.58%
+  Neutral: 76.52%
+  Positive: 13.90%
+
