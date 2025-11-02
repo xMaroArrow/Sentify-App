@@ -1,0 +1,14 @@
+[2025-10-26 22:04:31]
+احبتي الأعزاء
+Dominant sentiment: Neutral
+  Negative: 26.37%
+  Neutral: 69.54%
+  Positive: 4.09%
+
+[2025-10-26 22:04:56]
+كميه احساس مو طبيعي
+Dominant sentiment: Neutral
+  Negative: 20.81%
+  Neutral: 75.36%
+  Positive: 3.83%
+

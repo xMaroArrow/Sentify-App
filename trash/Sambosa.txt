@@ -1,0 +1,28 @@
+===== MODEL COMPARISON =====
+
+Overall Metrics:
+--------------------------------------------------------------------------------
+Model           Accuracy        Inference_time 
+--------------------------------------------------------------------------------
+pretrained_twitter-roberta-base-sentiment_1746815695 (cardiffnlp/twitter-roberta-base-sentiment) 0.4715          27.34/s        
+
+
+Class-wise Metrics:
+
+Class: negative
+--------------------------------------------------------------------------------
+Model           Precision       Recall          F1             
+--------------------------------------------------------------------------------
+pretrained_twitter-roberta-base-sentiment_1746815695 (cardiffnlp/twitter-roberta-base-sentiment) 0.4312          0.6941          0.5319         
+
+Class: neutral
+--------------------------------------------------------------------------------
+Model           Precision       Recall          F1             
+--------------------------------------------------------------------------------
+pretrained_twitter-roberta-base-sentiment_1746815695 (cardiffnlp/twitter-roberta-base-sentiment) 0.4470          0.6791          0.5391         
+
+Class: positive
+--------------------------------------------------------------------------------
+Model           Precision       Recall          F1             
+--------------------------------------------------------------------------------
+pretrained_twitter-roberta-base-sentiment_1746815695 (cardiffnlp/twitter-roberta-base-sentiment) 0.7845          0.1709          0.2806         
