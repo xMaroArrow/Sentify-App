@@ -9,6 +9,7 @@ import threading
 
 # Import the new shared sentiment analyzer
 from addons.sentiment_analyzer import SentimentAnalyzer
+from utils import theme
 
 class Page1(ctk.CTkFrame):
     def __init__(self, parent):
@@ -17,8 +18,13 @@ class Page1(ctk.CTkFrame):
         # Initialize the shared sentiment analyzer
         self.sentiment_analyzer = SentimentAnalyzer()
 
-        self.scrollable = ctk.CTkScrollableFrame(self, width=800, height=850)
+        self.scrollable = ctk.CTkScrollableFrame(self)
         self.scrollable.pack(expand=True, fill="both", padx=10, pady=10)
+        # Subtle border for separation
+        try:
+            self.scrollable.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
 
         # Initialize Tweepy Client
         self.twitter_client = self.initialize_twitter_client()
@@ -64,9 +70,14 @@ class Page1(ctk.CTkFrame):
         self.matplotlib_figure = None
         self.canvas_frame = ctk.CTkFrame(self.scrollable)
         self.canvas_frame.pack(pady=10)
-        
+        try:
+            self.canvas_frame.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+
         # Display initial chart
-        self.create_pie_chart([40, 30, 30])
+        self.last_counts = [40, 30, 30]
+        self.create_pie_chart(self.last_counts)
 
     def initialize_twitter_client(self):
         """Initialize the Twitter API client with proper error handling."""
@@ -83,11 +94,21 @@ class Page1(ctk.CTkFrame):
     def create_pie_chart(self, counts):
         """Create a pie chart visualization from sentiment counts."""
         sentiments = ["Neutral", "Negative", "Positive"]
+        # Remember last counts
+        try:
+            self.last_counts = counts
+        except Exception:
+            pass
+
+        # Theme-aware colors
+        txt = theme.text_color()
+        bg = theme.plot_bg()
+
         plt.rcParams.update({
-            "text.color": "white",
-            "axes.labelcolor": "white",
-            "xtick.color": "white",
-            "ytick.color": "white",
+            "text.color": txt,
+            "axes.labelcolor": txt,
+            "xtick.color": txt,
+            "ytick.color": txt,
         })
 
         # Clean up previous figure if it exists
@@ -96,8 +117,8 @@ class Page1(ctk.CTkFrame):
 
         # Create new figure
         self.matplotlib_figure, ax = plt.subplots()
-        self.matplotlib_figure.patch.set_facecolor("#2B2B2B")
-        ax.set_facecolor("#2B2B2B")
+        self.matplotlib_figure.patch.set_facecolor(bg)
+        ax.set_facecolor(bg)
 
         # Create pie chart
         ax.pie(
@@ -105,10 +126,10 @@ class Page1(ctk.CTkFrame):
             labels=sentiments,
             autopct="%1.1f%%",
             startangle=90,
-            textprops={"color": "white"},
+            textprops={"color": txt},
             colors=["#ffb300", "#e91e63", "#4caf50"]  # amber, pink, green
         )
-        ax.set_title("Sentiment Analysis Results", color="white")
+        ax.set_title("Sentiment Analysis Results", color=txt)
 
         # Update canvas
         if self.canvas:
@@ -118,6 +139,20 @@ class Page1(ctk.CTkFrame):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack()
         plt.close(self.matplotlib_figure)
+
+    def update_theme(self, mode):
+        """Refresh widgets and chart when theme changes."""
+        try:
+            # Update borders to current theme
+            self.scrollable.configure(border_width=1, border_color=theme.border_color())
+            self.canvas_frame.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+        # Redraw chart with last known counts
+        try:
+            self.create_pie_chart(self.last_counts)
+        except Exception:
+            pass
 
     def update_description(self, selected_option):
         """Update UI based on the selected input type."""
@@ -182,8 +217,9 @@ class Page1(ctk.CTkFrame):
                     text=f"{selected_option} analysis is not implemented yet"
                 ))
         except Exception as e:
-            self.after(0, lambda: self.error_label.configure(
-                text=f"Error processing request: {str(e)}"
+            error_message = f"Error processing request: {e}"
+            self.after(0, lambda msg=error_message: self.error_label.configure(
+                text=msg
             ))
         finally:
             # Reset button state

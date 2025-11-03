@@ -1,0 +1,48 @@
+[2025-11-03 19:23:19]
+pip3 install emoji==0.6.0
+Dominant sentiment: Error
+  Error: 100.00%
+
+[2025-11-03 19:25:00]
+Error fetching tweet: Twitter API rate limit exceeded. Please try again later.
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 862,...
+Dominant sentiment: Error
+  Error: 100.00%
+
+[2025-11-03 19:26:04]
+Error fetching tweet: Twitter API rate limit exceeded. Please try again later.
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 862,...
+Dominant sentiment: Error
+  Error: 100.00%
+
+[2025-11-03 19:26:09]
+Error fetching tweet: Twitter API rate limit exceeded. Please try again later.
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\tkinter\__init__.py", line 862,...
+Dominant sentiment: Error
+  Error: 100.00%
+
+[2025-11-03 19:40:02]
+the worst pain is getting hurt by a person you explained your pain to. that shit hurts
+Dominant sentiment: Error
+  Error: 100.00%
+
+[2025-11-03 19:43:41]
+C:\Users\Salman\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe -m pip install --upgrade pip
+Dominant sentiment: Error
+  Error: 100.00%
+

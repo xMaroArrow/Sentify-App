@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any
 
 # Import the shared sentiment analyzer
 from addons.sentiment_analyzer import SentimentAnalyzer
+from utils import theme
 
 # Choose ONE collector implementation
 try:
@@ -169,6 +170,11 @@ class Page2(ctk.CTkFrame):
         # Ensure fixed minimum width for the fig_frame to keep graphs from shrinking
         self.fig_frame.configure(width=900, height=350)
         self.fig_frame.grid_propagate(False)  # Prevent frame from shrinking
+        try:
+            self.viz_frame.configure(border_width=1, border_color=theme.border_color())
+            self.fig_frame.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
         
         # Sample tweets container
         self.samples_frame = ctk.CTkFrame(self.viz_frame)
@@ -658,9 +664,10 @@ Requirements:
         
         # Create figure
         fig, ax = plt.subplots(figsize=(6, 4))
-        dark = "#2B2B2B"
-        fig.patch.set_facecolor(dark)
-        ax.set_facecolor(dark)
+        bg = theme.plot_bg()
+        txt = theme.text_color()
+        fig.patch.set_facecolor(bg)
+        ax.set_facecolor(bg)
         
         # Check if we have data
         if any(totals.values()):
@@ -675,8 +682,8 @@ Requirements:
                 colors=colors,
                 autopct=lambda p: f"{p:.1f}%\n({int(p*sum(values)/100)})" if p > 5 else "",
                 startangle=90, 
-                textprops={"color": "white", "fontweight": "bold"},
-                wedgeprops={"edgecolor": dark, "linewidth": 1}
+                textprops={"color": txt, "fontweight": "bold"},
+                wedgeprops={"edgecolor": bg, "linewidth": 1}
             )
             
             # Enhanced text styling
@@ -713,9 +720,10 @@ Requirements:
         if not self.time_stamps:
             # Create empty figure with message
             fig, ax = plt.subplots(figsize=(6, 4))
-            dark = "#2B2B2B"
-            fig.patch.set_facecolor(dark)
-            ax.set_facecolor(dark)
+            bg = theme.plot_bg()
+            txt = theme.text_color()
+            fig.patch.set_facecolor(bg)
+            ax.set_facecolor(bg)
             
             ax.text(
                 0.5, 0.5, 
@@ -726,13 +734,13 @@ Requirements:
                 fontsize=12
             )
             
-            ax.set_title("Sentiment Trend Over Time", color="white", fontsize=14, pad=20)
+            ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=20)
             
             # Set up empty axes
-            ax.set_xlabel("Time", color="white")
-            ax.set_ylabel("Tweet Count", color="white")
-            ax.tick_params(axis="x", colors="white")
-            ax.tick_params(axis="y", colors="white")
+            ax.set_xlabel("Time", color=txt)
+            ax.set_ylabel("Tweet Count", color=txt)
+            ax.tick_params(axis="x", colors=txt)
+            ax.tick_params(axis="y", colors=txt)
             
             # Create canvas with fixed size
             self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
@@ -745,9 +753,10 @@ Requirements:
 
         # Create figure for trend chart
         fig, ax = plt.subplots(figsize=(6, 4))
-        dark = "#2B2B2B"
-        fig.patch.set_facecolor(dark)
-        ax.set_facecolor(dark)
+        bg = theme.plot_bg()
+        txt = theme.text_color()
+        fig.patch.set_facecolor(bg)
+        ax.set_facecolor(bg)
         
         # Prepare color scheme and sentiment labels
         colors = {
@@ -792,13 +801,13 @@ Requirements:
                 )
         
         # Enhanced formatting
-        ax.set_title("Sentiment Trend Over Time", color="white", fontsize=14, pad=20)
-        ax.set_xlabel("Time", color="white", fontsize=10)
-        ax.set_ylabel("Tweet Count", color="white", fontsize=10)
+        ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=20)
+        ax.set_xlabel("Time", color=txt, fontsize=10)
+        ax.set_ylabel("Tweet Count", color=txt, fontsize=10)
         
         # Improve tick formatting
-        ax.tick_params(axis="x", rotation=45, labelcolor="white", labelsize=8)
-        ax.tick_params(axis="y", labelcolor="white", labelsize=8)
+        ax.tick_params(axis="x", rotation=45, labelcolor=txt, labelsize=8)
+        ax.tick_params(axis="y", labelcolor=txt, labelsize=8)
         
         # Show fewer x-axis ticks if many data points
         if len(self.time_stamps) > 10:
@@ -806,15 +815,15 @@ Requirements:
             ax.set_xticks(self.time_stamps[::step])
             
         # Add grid for readability
-        ax.grid(True, linestyle="--", alpha=0.3, color="white")
+        ax.grid(True, linestyle="--", alpha=0.3, color=txt)
         
         # Add legend
         if any(sum(self.sentiment_counts[s]) > 0 for s in colors.keys()):
             ax.legend(
                 loc="upper left", 
-                facecolor=dark, 
+                facecolor=bg, 
                 edgecolor="#555555",
-                labelcolor="white",
+                labelcolor=txt,
                 fontsize=8
             )
         
@@ -825,6 +834,14 @@ Requirements:
         self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
         self.trend_canvas.draw()
         self.trend_canvas.get_tk_widget().pack(side="right", padx=5)
+
+    def update_theme(self, mode):
+        """Redraw charts to adapt to current theme."""
+        try:
+            self.update_pie_chart()
+            self.update_trend_chart()
+        except Exception:
+            pass
 
     def _show_samples(self):
         """Display sample tweets for each sentiment category."""
