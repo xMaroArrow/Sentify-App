@@ -174,3 +174,5 @@ cython_debug/
 sentiment_analysis_experiment/data/sentiment140.csv
 
 data/
+
+trash/
