@@ -9,6 +9,16 @@ import threading
 
 # Import the new shared sentiment analyzer
 from addons.sentiment_analyzer import SentimentAnalyzer
+try:
+    from addons.reddit_client import (
+        get_reddit_client,
+        fetch_thread_items,
+        RedditNotConfigured,
+    )
+except Exception:
+    get_reddit_client = None
+    fetch_thread_items = None
+    RedditNotConfigured = Exception
 from utils import theme
 
 class Page1(ctk.CTkFrame):
@@ -48,7 +58,7 @@ class Page1(ctk.CTkFrame):
         self.option_menu = ctk.CTkOptionMenu(
             self.scrollable,
             variable=self.option_var,
-            values=["Tweet", "Text", "Hashtag", "Account"],
+            values=["Tweet", "Text", "Hashtag", "Account", "Reddit Thread"],
             command=self.update_description
         )
         self.option_menu.pack(pady=10)
@@ -212,6 +222,9 @@ class Page1(ctk.CTkFrame):
         elif selected_option == "Tweet":
             self.description_label.configure(text="Enter Tweet URL:")
             self.url_entry.configure(placeholder_text="Enter tweet URL here...")
+        elif selected_option == "Reddit Thread":
+            self.description_label.configure(text="Enter Reddit Thread URL or ID:")
+            self.url_entry.configure(placeholder_text="Enter Reddit thread URL or base36 ID...")
         else:
             self.description_label.configure(text="Enter URL:")
             self.url_entry.configure(placeholder_text="Enter URL here...")
@@ -260,6 +273,8 @@ class Page1(ctk.CTkFrame):
                     self.after(0, lambda: self.error_label.configure(
                         text="Unable to fetch tweet. Please check the URL or try again later."
                     ))
+            elif selected_option == "Reddit Thread":
+                self._process_reddit_thread(user_input)
             else:
                 # Future implementation for other options
                 self.after(0, lambda: self.error_label.configure(
@@ -294,6 +309,61 @@ class Page1(ctk.CTkFrame):
         # Update UI on main thread
         self.after(0, update_text_area)
         self.after(0, lambda: self.animate_pie(counts))
+
+    def _process_reddit_thread(self, url_or_id: str):
+        """Fetch a Reddit thread and update UI with aggregate sentiment."""
+        try:
+            if get_reddit_client is None or fetch_thread_items is None:
+                raise RedditNotConfigured("Reddit client not available. Install praw and set env vars.")
+
+            reddit = get_reddit_client()
+            items = fetch_thread_items(reddit, url_or_id, include_submission=True, max_comments=None)
+            if not items:
+                self.after(0, lambda: self.error_label.configure(text="No content found in thread."))
+                return
+
+            pos = neu = neg = 0
+            for it in items:
+                s = self.sentiment_analyzer.analyze_text(it.get("text", ""))
+                p_pos = s.get("Positive", 0.0)
+                p_neu = s.get("Neutral", 0.0)
+                p_neg = s.get("Negative", 0.0)
+                if p_pos >= p_neu and p_pos >= p_neg:
+                    pos += 1
+                elif p_neg >= p_pos and p_neg >= p_neu:
+                    neg += 1
+                else:
+                    neu += 1
+
+            total = max(1, pos + neu + neg)
+            pct_pos = round(pos * 100.0 / total, 1)
+            pct_neu = round(neu * 100.0 / total, 1)
+            pct_neg = round(neg * 100.0 / total, 1)
+
+            # Order: [Neutral, Negative, Positive]
+            counts = [pct_neu, pct_neg, pct_pos]
+
+            summary_text = (
+                f"Reddit thread analyzed ({total} items)\n"
+                f"Positive: {pct_pos}% ({pos})\n"
+                f"Neutral:  {pct_neu}% ({neu})\n"
+                f"Negative: {pct_neg}% ({neg})\n"
+            )
+
+            def update_text_area():
+                self.tweet_text_area.configure(state="normal")
+                self.tweet_text_area.delete("1.0", "end")
+                self.tweet_text_area.insert("1.0", summary_text)
+                self.tweet_text_area.configure(state="disabled")
+
+            self.after(0, update_text_area)
+            self.after(0, lambda: self.animate_pie(counts))
+        except RedditNotConfigured as e:
+            msg = str(e)
+            self.after(0, lambda m=msg: self.error_label.configure(text=m))
+        except Exception as e:
+            msg = f"Reddit error: {e}"
+            self.after(0, lambda m=msg: self.error_label.configure(text=m))
 
     def fetch_tweet_text(self, tweet_url):
         """Fetch tweet text from URL with enhanced error handling and caching."""

@@ -2,5 +2,8 @@
   "confidence_threshold": 70,
   "remove_urls": true,
   "remove_mentions": true,
-  "model": "cardiffnlp/twitter-roberta-base-sentiment"
+  "model": "cardiffnlp/twitter-roberta-base-sentiment",
+  "reddit_client_id": "k1i1d87Shv0AgCPbQ1hhUA",
+  "reddit_client_secret": "WEoCUeg5Zy8QDV-bIB5Nh9PvNA8stg",
+  "reddit_user_agent": "Sentify-App:1.0 (by u/Ok_Technology_233)"
 }

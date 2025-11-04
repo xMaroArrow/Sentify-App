@@ -1,0 +1,44 @@
+[2025-11-04 20:37:39]
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Users\Salman\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 2082, in __call__
+    return self.func(*args)
+           ~~~~~~~~~^^^^^^^
+  File "C:\Users\Salman\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 876, in callit
+    func(*args, **kw)
+    ~~~~^^^^^^^^^^^^^
+  File "d:\Thesis\Sentify-App\pages\page1.py", line 362, in <lambda>
+    self.after(0, lambda: self.err...
+Dominant sentiment: Negative
+  Negative: 54.88%
+  Neutral: 41.38%
+  Positive: 3.74%
+
+[2025-11-04 20:41:50]
+u/Ok_Technology_233
+Dominant sentiment: Neutral
+  Negative: 16.57%
+  Neutral: 75.74%
+  Positive: 7.69%
+
+[2025-11-04 20:44:36]
+windows:Sentify-App:1.0 (by u/Ok_Technology_233)
+Dominant sentiment: Neutral
+  Negative: 5.94%
+  Neutral: 86.69%
+  Positive: 7.37%
+
+[2025-11-04 20:47:09]
+Ok_Technology_233
+Dominant sentiment: Neutral
+  Negative: 12.79%
+  Neutral: 75.15%
+  Positive: 12.06%
+
+[2025-11-04 20:47:40]
+windows:Sentify-App:1.0 (by u/Ok_Technology_233)
+Dominant sentiment: Neutral
+  Negative: 5.94%
+  Neutral: 86.69%
+  Positive: 7.37%
+
