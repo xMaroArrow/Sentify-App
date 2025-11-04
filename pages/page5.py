@@ -729,7 +729,14 @@ class Page5(ctk.CTkFrame):
         viz_label.pack(side="left", padx=10, pady=5)
         
         self.viz_type_var = ctk.StringVar(value="Confusion Matrix")
-        viz_options = ["Confusion Matrix", "Precision-Recall Curve", "ROC Curve", "Metrics Table"]
+        viz_options = [
+            "Confusion Matrix",
+            "Precision-Recall Curve",
+            "ROC Curve",
+            "Metrics Table",
+            "Loss Curve",
+            "Word Cloud"
+        ]
         viz_menu = ctk.CTkOptionMenu(
             viz_frame,
             values=viz_options,
@@ -1624,7 +1631,9 @@ class Page5(ctk.CTkFrame):
                 data_processor=self.data_processor
             )
             
-            # Store results for visualization
+            # Store results for visualization (initialize if missing)
+            if model_name not in self.model_results:
+                self.model_results[model_name] = {}
             self.model_results[model_name]['evaluation'] = result
             
             # Update visualization
@@ -1682,8 +1691,8 @@ class Page5(ctk.CTkFrame):
             self.visualizer.plot_precision_recall_curve(
                 fig=fig,
                 ax=ax,
-                precision=result['precision'],
-                recall=result['recall'],
+                precision=result['precision_curve'],
+                recall=result['recall_curve'],
                 average_precision=result['average_precision'],
                 classes=result['classes'],
                 title=f"Precision-Recall Curve - {model_name}",
@@ -1709,6 +1718,45 @@ class Page5(ctk.CTkFrame):
                 classification_report=result['classification_report'],
                 accuracy=result['accuracy'],
                 model_name=model_name,
+                publication_ready=publication_ready
+            )
+        
+        elif viz_type == "Loss Curve":
+            history = result.get('history') or self.model_results.get(model_name, {}).get('history')
+            if not history:
+                plt.close(fig)
+                self.viz_canvas = None
+                messagebox.showinfo("Information", "No training history available for this model.")
+                return
+            self.visualizer.plot_loss_curves(
+                fig=fig,
+                ax=ax,
+                history=history,
+                title=f"Loss Curves - {model_name}",
+                publication_ready=publication_ready
+            )
+        
+        elif viz_type == "Word Cloud":
+            texts = []
+            if hasattr(self.data_processor, 'test_data') and self.data_processor.test_data is not None:
+                texts = list(self.data_processor.test_data.get('texts', []))
+            # Prefer misclassified texts if predictions are available
+            y_true = result.get('y_true')
+            y_pred = result.get('y_pred')
+            if texts and isinstance(y_true, list) and isinstance(y_pred, list) and len(y_true) == len(texts) == len(y_pred):
+                mis_texts = [t for t, yt, yp in zip(texts, y_true, y_pred) if yt != yp]
+                if mis_texts:
+                    texts = mis_texts
+                    title = f"Word Cloud (Misclassified) - {model_name}"
+                else:
+                    title = f"Word Cloud (All Test Texts) - {model_name}"
+            else:
+                title = f"Word Cloud (All Test Texts) - {model_name}"
+            self.visualizer.plot_word_cloud(
+                fig=fig,
+                ax=ax,
+                texts=texts,
+                title=title,
                 publication_ready=publication_ready
             )
         
@@ -1768,7 +1816,7 @@ class Page5(ctk.CTkFrame):
         
         # Check if all selected models have evaluation results
         for model_name in selected_models:
-            if 'evaluation' not in self.model_results[model_name]:
+            if model_name not in self.model_results or 'evaluation' not in self.model_results[model_name]:
                 messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
                 return
         
@@ -1840,8 +1888,8 @@ class Page5(ctk.CTkFrame):
                     self.visualizer.plot_precision_recall_curve(
                         fig=None,
                         ax=axes[i],
-                        precision=result['precision'],
-                        recall=result['recall'],
+                        precision=result['precision_curve'],
+                        recall=result['recall_curve'],
                         average_precision=result['average_precision'],
                         classes=result['classes'],
                         title=model_name,

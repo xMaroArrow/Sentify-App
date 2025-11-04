@@ -470,3 +470,52 @@ class ModelComparisonVisualizer:
         
         # Add a horizontal line at accuracy = 1.0
         ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+
+    def plot_loss_curves(self, fig, ax, history: Dict,
+                         title: str = "Training and Validation Loss",
+                         publication_ready: bool = True):
+        """Plot training and validation loss curves."""
+        if publication_ready:
+            main_color = "black"
+            grid_alpha = 0.3
+        else:
+            main_color = "white"
+            grid_alpha = 0.2
+        losses = history.get('loss', []) or history.get('train_loss', [])
+        val_losses = history.get('val_loss', [])
+        epochs = range(1, len(losses) + 1)
+        ax.plot(epochs, losses, 'o-', label='Train Loss')
+        if val_losses:
+            ax.plot(epochs, val_losses, 's--', label='Val Loss')
+        ax.set_xlabel('Epoch', fontsize=10, color=main_color)
+        ax.set_ylabel('Loss', fontsize=10, color=main_color)
+        ax.set_title(title, fontsize=12, color=main_color)
+        ax.grid(alpha=grid_alpha)
+        ax.legend(loc='best', fontsize=8)
+        if len(epochs) <= 20:
+            ax.set_xticks(epochs)
+
+    def plot_word_cloud(self, fig, ax, texts: List[str],
+                        title: str = "Word Cloud",
+                        publication_ready: bool = True,
+                        max_words: int = 200):
+        """Plot a word cloud from a list of texts."""
+        try:
+            from wordcloud import WordCloud
+        except Exception as e:
+            ax.text(0.5, 0.5, "Install 'wordcloud' to view\nword cloud visualization",
+                    ha='center', va='center', fontsize=12, color='red')
+            ax.set_axis_off()
+            return
+        text_blob = " ".join(texts) if texts else ""
+        if not text_blob.strip():
+            ax.text(0.5, 0.5, "No text available for word cloud",
+                    ha='center', va='center', fontsize=12)
+            ax.set_axis_off()
+            return
+        bg = 'white' if publication_ready else 'black'
+        wc = WordCloud(width=800, height=400, background_color=bg,
+                       max_words=max_words, collocations=False).generate(text_blob)
+        ax.imshow(wc, interpolation='bilinear')
+        ax.set_title(title, fontsize=12, color=('black' if publication_ready else 'white'))
+        ax.axis('off')

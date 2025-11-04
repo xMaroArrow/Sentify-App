@@ -460,7 +460,7 @@ class ModelTrainer:
         results = self._evaluate_model_on_test_data(
             model=model,
             test_loader=test_loader,
-            model_type=model_type,
+            model_type=("transformer" if model_type == "transformer" else "pytorch"),
             class_names=data_processor.class_names
         )
         eval_time = time.time() - eval_start_time
@@ -983,7 +983,8 @@ class ModelTrainer:
         # Prepare datasets
         dataloaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size)
         train_loader = dataloaders["train"]
-        val_loader = dataloaders["val"]
+        # Use validation loader if available; otherwise fall back to test for validation curves
+        val_loader = dataloaders["val"] if dataloaders.get("val") is not None else dataloaders.get("test")
         
         # Get vocabulary size and number of classes
         vocab_size = data_processor.vocab_size
@@ -1057,7 +1058,13 @@ class ModelTrainer:
             lr_scheduler = None
         
         # Create loss function
-        criterion = nn.CrossEntropyLoss()
+        # Use class weights to handle imbalance
+        try:
+            _, class_weights = data_processor.get_class_weights()
+            class_weights = class_weights.to(self.device)
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        except Exception:
+            criterion = nn.CrossEntropyLoss()
         
         # Save hyperparameters
         hyperparams = {
@@ -1085,7 +1092,7 @@ class ModelTrainer:
         self._save_hyperparameters(model_name, hyperparams)
         
         # Train the model with advanced options
-        self._train_advanced_rnn_model(
+        self._train_advanced_model(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
@@ -1133,7 +1140,8 @@ class ModelTrainer:
         # Prepare datasets
         dataloaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size)
         train_loader = dataloaders["train"]
-        val_loader = dataloaders["val"]
+        # Use validation loader if available; otherwise fall back to test for validation curves
+        val_loader = dataloaders["val"] if dataloaders.get("val") is not None else dataloaders.get("test")
         
         # Get vocabulary size and number of classes
         vocab_size = data_processor.vocab_size
@@ -1207,7 +1215,13 @@ class ModelTrainer:
             lr_scheduler = None
         
         # Create loss function
-        criterion = nn.CrossEntropyLoss()
+        # Use class weights to handle imbalance
+        try:
+            _, class_weights = data_processor.get_class_weights()
+            class_weights = class_weights.to(self.device)
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        except Exception:
+            criterion = nn.CrossEntropyLoss()
         
         # Save hyperparameters
         hyperparams = {
@@ -2478,27 +2492,101 @@ class ModelTrainer:
         
         # Load model
         print(f"Loading model from {model_path}...")
-        if model_type == "pytorch":
-            # For PyTorch models, we need to re-create the model architecture
-            if hyperparams and "model_type" in hyperparams:
-                if hyperparams["model_type"] == "lstm":
-                    model = self._load_lstm_model(model_path, data_processor, hyperparams)
-                elif hyperparams["model_type"] == "cnn":
-                    model = self._load_cnn_model(model_path, data_processor, hyperparams)
+        if model_type == "transformer":
+            # For transformer models, try local dir first; if missing weights, fall back to HF ID
+            is_pretrained_eval = metadata.get("is_pretrained_evaluation", False)
+            pretrained_id = metadata.get("pretrained_model")
+            num_classes = len(data_processor.class_names)
+            try:
+                if not is_pretrained_eval:
+                    # Attempt to load from local directory
+                    model = AutoModelForSequenceClassification.from_pretrained(model_path)
+                    print("Loaded transformer model from local directory")
                 else:
-                    raise ValueError(f"Unknown PyTorch model type: {hyperparams['model_type']}")
-            else:
-                # Try to infer model type from name
-                if "lstm" in model_name.lower():
-                    model = self._load_lstm_model(model_path, data_processor)
-                elif "cnn" in model_name.lower():
-                    model = self._load_cnn_model(model_path, data_processor)
-                else:
-                    raise ValueError(f"Could not determine model type for {model_name}")
+                    raise RuntimeError("Pretrained-eval entry has no local weights; loading from Hugging Face")
+            except Exception as e:
+                if not pretrained_id:
+                    raise
+                # Load from Hugging Face using recorded model ID with label count override
+                print(f"Falling back to Hugging Face model: {pretrained_id} ({e})")
+                try:
+                    from transformers import AutoConfig
+                    config = AutoConfig.from_pretrained(pretrained_id)
+                    _orig = getattr(config, "num_labels", -1)
+                    print(f"Original HF num_labels={_orig}, overriding to {num_classes}")
+                    config.num_labels = num_classes
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        pretrained_id,
+                        config=config,
+                        ignore_mismatched_sizes=True
+                    )
+                except Exception as e2:
+                    # Final fallback
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        pretrained_id,
+                        num_labels=num_classes,
+                        ignore_mismatched_sizes=True
+                    )
+                    print(f"Loaded HF model with direct num_labels override ({e2})")
         else:
-            # For transformer models, we can load directly with from_pretrained
-            model = AutoModelForSequenceClassification.from_pretrained(model_path)
-            print("Loaded transformer model")
+            # PyTorch family (LSTM/CNN/advanced variants)
+            arch = None
+            if hyperparams and "model_type" in hyperparams:
+                arch = hyperparams["model_type"]
+            else:
+                # If metadata stored advanced type, prefer it
+                if model_type in ("lstm", "cnn", "advanced_rnn", "advanced_cnn"):
+                    arch = model_type
+                else:
+                    if "lstm" in model_name.lower():
+                        arch = "lstm"
+                    elif "cnn" in model_name.lower():
+                        arch = "cnn"
+
+            # If still unknown, try to infer from checkpoint keys
+            if arch is None:
+                sd_path = os.path.join(model_path, "model.pt")
+                if os.path.exists(sd_path):
+                    try:
+                        state_dict = torch.load(sd_path, map_location=self.device)
+                        if any(k.startswith("convs.") for k in state_dict.keys()):
+                            arch = "advanced_cnn"
+                        elif any(k.startswith("rnn.") or k.startswith("lstm.") for k in state_dict.keys()):
+                            arch = "advanced_rnn"
+                    except Exception:
+                        pass
+
+            def _load_by_arch(a: str):
+                if a == "lstm":
+                    return self._load_lstm_model(model_path, data_processor, hyperparams)
+                if a == "cnn":
+                    return self._load_cnn_model(model_path, data_processor, hyperparams)
+                if a == "advanced_rnn":
+                    return self._load_advanced_rnn_model(model_path, data_processor, hyperparams)
+                if a == "advanced_cnn":
+                    return self._load_advanced_cnn_model(model_path, data_processor, hyperparams)
+                raise ValueError(f"Unknown PyTorch model type: {a}")
+
+            try:
+                model = _load_by_arch(arch)
+            except (RuntimeError, ValueError) as e:
+                # Try alternative arch if mismatch between saved weights and chosen arch
+                sd_path = os.path.join(model_path, "model.pt")
+                alt = None
+                if os.path.exists(sd_path):
+                    try:
+                        state_dict = torch.load(sd_path, map_location=self.device)
+                        if any(k.startswith("convs.") for k in state_dict.keys()):
+                            alt = "advanced_cnn"
+                        elif any(k.startswith("rnn.") or k.startswith("lstm.") for k in state_dict.keys()):
+                            alt = "advanced_rnn"
+                    except Exception:
+                        pass
+                if alt and alt != arch:
+                    print(f"Architecture mismatch detected, retrying load as {alt}")
+                    model = _load_by_arch(alt)
+                else:
+                    raise
         
         # Move model to device
         model.to(self.device)
@@ -2506,14 +2594,16 @@ class ModelTrainer:
         
         # Prepare test data
         print("Preparing test data...")
-        if model_type == "pytorch":
-            dataloaders = data_processor.prepare_pytorch_datasets(batch_size=32)
-        else:
+        if model_type == "transformer":
+            # Use the correct tokenizer source: local dir if present, otherwise HF ID
+            tokenizer_name = metadata.get("pretrained_model") if metadata.get("is_pretrained_evaluation", False) else os.path.join(model_path)
             dataloaders = data_processor.prepare_pytorch_datasets(
                 batch_size=32,
-                tokenizer_name=os.path.join(model_path),
+                tokenizer_name=tokenizer_name,
                 max_length=128
             )
+        else:
+            dataloaders = data_processor.prepare_pytorch_datasets(batch_size=32)
         
         test_loader = dataloaders["test"]
         print(f"Test data prepared, {len(test_loader)} batches")
@@ -2770,6 +2860,8 @@ class ModelTrainer:
             "recall_curve": pr_recall,
             "average_precision": average_precision,
             "classes": class_names_list,
+            "y_true": all_labels.tolist(),
+            "y_pred": all_preds.tolist(),
             "inference_time": {
                 "average_batch_time": avg_inference_time,
                 "samples_per_second": samples_per_second,
