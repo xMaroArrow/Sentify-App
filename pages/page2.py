@@ -41,20 +41,22 @@ class Page2(ctk.CTkFrame):
 
         # Initialize the shared sentiment analyzer
         self.sentiment_analyzer = SentimentAnalyzer()
-        
+
         # Initialize canvas variables BEFORE they are used
         self.canvas = None
         self.trend_canvas = None
         self.example_textbox = None
-        
-         # Create a master scrollable container with fixed width to preserve graph sizes
+
+        # Use grid layout for better centering and control
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Create a master scrollable container that adapts to parent size
         self.master_scroll = ctk.CTkScrollableFrame(
-            self, 
-            width=950,  # Fixed width to accommodate full-size graphs
-            height=800,  # Reasonable height that will scroll if needed
+            self,
             corner_radius=0,  # Remove rounded corners for better space usage
         )
-        self.master_scroll.pack(expand=True, fill="both", padx=0, pady=0)
+        self.master_scroll.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         # --- State holders -------------------------------------------
         self.collector: Optional[TweetCollector] = None
@@ -160,16 +162,23 @@ class Page2(ctk.CTkFrame):
         self.progress.pack(pady=(10, 0))
         self.progress.set(0)
 
-        # Visualization container
-        self.viz_frame = ctk.CTkFrame(self.master_scroll)  # Changed parent
+        # Visualization container - use grid for better control
+        self.viz_frame = ctk.CTkFrame(self.master_scroll)
         self.viz_frame.pack(expand=True, fill="both", padx=20, pady=(10, 0))
-        
-        # Chart container - preserve original sizes
+
+        # Chart container - allow flexible sizing
         self.fig_frame = ctk.CTkFrame(self.viz_frame)
-        self.fig_frame.pack(side="top", pady=5, fill="x")
-        # Ensure fixed minimum width for the fig_frame to keep graphs from shrinking
-        self.fig_frame.configure(width=900, height=350)
-        self.fig_frame.grid_propagate(False)  # Prevent frame from shrinking
+        self.fig_frame.pack(pady=5, fill="x")
+        try:
+            # Two equal columns for side-by-side charts
+            self.fig_frame.grid_columnconfigure(0, weight=1, uniform="figs")
+            self.fig_frame.grid_columnconfigure(1, weight=1, uniform="figs")
+            # Keep row from stretching vertically; we control size to stay square
+            self.fig_frame.grid_rowconfigure(0, weight=0)
+            # Enforce square canvases when resized
+            self.fig_frame.bind("<Configure>", self._on_fig_frame_resize)
+        except Exception:
+            pass
         try:
             self.viz_frame.configure(border_width=1, border_color=theme.border_color())
             self.fig_frame.configure(border_width=1, border_color=theme.border_color())
@@ -662,8 +671,8 @@ Requirements:
         # Calculate totals
         totals = {k: sum(v) for k, v in self.sentiment_counts.items()}
         
-        # Create figure
-        fig, ax = plt.subplots(figsize=(6, 4))
+        # Create square figure
+        fig, ax = plt.subplots(figsize=(6, 6))
         bg = theme.plot_bg()
         txt = theme.text_color()
         fig.patch.set_facecolor(bg)
@@ -700,15 +709,22 @@ Requirements:
                 fontsize=12
             )
             
-        # Title and styling
+        # Ensure a perfect circle and title
+        ax.axis("equal")
         ax.set_title("Sentiment Distribution", color="white", fontsize=14, pad=20)
         
-        # Create canvas with fixed size
+        # Create canvas and place via grid to avoid stretching
         self.canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
         self.canvas.draw()
         canvas_widget = self.canvas.get_tk_widget()
-        canvas_widget.config(width=450, height=320)  # Fix the canvas size
-        canvas_widget.pack(side="left", padx=5)
+        try:
+            canvas_widget.grid(row=0, column=0, padx=10, pady=5)
+        except Exception:
+            canvas_widget.pack(side="left", padx=10)
+        try:
+            self._apply_square_size()
+        except Exception:
+            pass
 
     def update_trend_chart(self):
         """Create dark‑theme line chart with inline labels at latest points."""
@@ -718,8 +734,8 @@ Requirements:
             
         # Skip if no data
         if not self.time_stamps:
-            # Create empty figure with message
-            fig, ax = plt.subplots(figsize=(6, 4))
+            # Create empty square figure with message
+            fig, ax = plt.subplots(figsize=(6, 6))
             bg = theme.plot_bg()
             txt = theme.text_color()
             fig.patch.set_facecolor(bg)
@@ -742,17 +758,23 @@ Requirements:
             ax.tick_params(axis="x", colors=txt)
             ax.tick_params(axis="y", colors=txt)
             
-            # Create canvas with fixed size
+            # Create canvas and place via grid to avoid stretching
             self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
             self.trend_canvas.draw()
             canvas_widget = self.trend_canvas.get_tk_widget()
-            canvas_widget.config(width=450, height=320)  # Fix the canvas size
-            canvas_widget.pack(side="right", padx=5)
+            try:
+                canvas_widget.grid(row=0, column=1, padx=10, pady=5)
+            except Exception:
+                canvas_widget.pack(side="right", padx=10)
+            try:
+                self._apply_square_size()
+            except Exception:
+                pass
             
             return
 
-        # Create figure for trend chart
-        fig, ax = plt.subplots(figsize=(6, 4))
+        # Create square figure for trend chart
+        fig, ax = plt.subplots(figsize=(6, 6))
         bg = theme.plot_bg()
         txt = theme.text_color()
         fig.patch.set_facecolor(bg)
@@ -830,16 +852,58 @@ Requirements:
         # Ensure tight layout
         fig.tight_layout()
         
-        # Create canvas
+        # Create canvas and place via grid
         self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
         self.trend_canvas.draw()
-        self.trend_canvas.get_tk_widget().pack(side="right", padx=5)
+        try:
+            self.trend_canvas.get_tk_widget().grid(row=0, column=1, padx=10, pady=5)
+        except Exception:
+            self.trend_canvas.get_tk_widget().pack(side="right", padx=10)
+        try:
+            self._apply_square_size()
+        except Exception:
+            pass
 
     def update_theme(self, mode):
         """Redraw charts to adapt to current theme."""
         try:
             self.update_pie_chart()
             self.update_trend_chart()
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Square sizing helpers
+    # ------------------------------------------------------------------
+    def _current_square_dim(self) -> int:
+        try:
+            # Largest square that fits two side-by-side with padding
+            fw = max(self.fig_frame.winfo_width(), 300)
+            fh = max(self.fig_frame.winfo_height(), 300)
+            each_w = max(120, (fw - 40) / 2)  # ~20 outer + 10 per widget
+            dim = int(max(120, min(each_w, fh - 20)))
+            return dim
+        except Exception:
+            return 400
+
+    def _apply_square_size(self):
+        dim = self._current_square_dim()
+        for cvs in (getattr(self, 'canvas', None), getattr(self, 'trend_canvas', None)):
+            if not cvs:
+                continue
+            try:
+                widget = cvs.get_tk_widget()
+                widget.configure(width=dim, height=dim)
+                fig = cvs.figure
+                dpi = fig.get_dpi() if hasattr(fig, 'get_dpi') else 100
+                fig.set_size_inches(dim / float(dpi), dim / float(dpi), forward=True)
+                cvs.draw()
+            except Exception:
+                pass
+
+    def _on_fig_frame_resize(self, event):
+        try:
+            self._apply_square_size()
         except Exception:
             pass
 

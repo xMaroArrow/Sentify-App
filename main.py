@@ -1,6 +1,7 @@
 # import libraries
 import customtkinter as ctk
 from utils import theme
+from utils.config_manager import ConfigManager
 from pages.page1 import Page1  
 from pages.home_page import HomePage
 from pages.page2 import Page2  
@@ -8,6 +9,7 @@ from pages.page3 import Page3
 from pages.page4 import Page4
 from pages.page5 import Page5
 from pages.page6 import Page6
+from pages.settings_page import SettingsPage
 
 class MyApp(ctk.CTk):
     def __init__(self):
@@ -46,19 +48,55 @@ class MyApp(ctk.CTk):
         )
         self.light_mode_switch.pack(anchor="w", padx=8, pady=(0, 8))
 
-        self.sidebar_frame = ctk.CTkFrame(self, width=150)
-        self.sidebar_frame.grid(row=0, column=1, rowspan=5, sticky="ns")
+        # Header bar across the top (for a cleaner, modern layout)
+        self.header = ctk.CTkFrame(self)
+        self.header.grid(row=0, column=0, columnspan=3, sticky="new")
+        self.header.grid_columnconfigure(1, weight=1)
+
+        # Sidebar toggle in header
+        self.header_burger = ctk.CTkButton(self.header, text="≡", width=40, command=self.toggle_sidebar)
+        self.header_burger.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+        # Title centered
+        self.app_title = ctk.CTkLabel(self.header, text="Sentify", font=("Arial", 18, "bold"))
+        self.app_title.grid(row=0, column=1, pady=10)
+
+        # Theme switch on right, using the same variable
+        self.header_light_switch = ctk.CTkSwitch(
+            self.header,
+            text="Light Mode",
+            variable=self.light_mode_var,
+            command=self.toggle_light_mode,
+        )
+        self.header_light_switch.grid(row=0, column=2, padx=10, pady=10, sticky="e")
+
+        # Hide the old standalone controls (we use the header now)
+        try:
+            self.burger_button.grid_remove()
+            self.settings_button.grid_remove()
+            self.settings_panel.grid_remove()
+        except Exception:
+            pass
+
+        self.sidebar_frame = ctk.CTkFrame(self, width=170)
+        self.sidebar_frame.grid(row=1, column=0, sticky="nsw", padx=(10, 0), pady=(10, 10))
         self.sidebar_frame.grid_remove()  # Hide sidebar initially
 
+        # Create config manager and add sidebar items
+        self.config_manager = ConfigManager()
         # Add sidebar items
         self.add_sidebar_items()
 
         # Main content area
         self.container = ctk.CTkFrame(self)
-        self.container.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
-        # Let column 2 (content) grow and row 0 expand, and the page inside container fill
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(2, weight=1)
+        # Content under header in row 1, grows fully
+        self.container.grid(row=1, column=1, sticky="nsew", padx=10, pady=(10, 10))
+        # Grid weights: header fixed (row 0), content grows (row 1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        # Sidebar fixed width at col 0, content grows at col 1
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
 
@@ -91,7 +129,7 @@ class MyApp(ctk.CTk):
             self.sidebar_frame.grid_remove()  # Hide sidebar
             self.sidebar_open = False
         else:
-            self.sidebar_frame.grid(row=0, column=1, rowspan=5, sticky="ns")
+            self.sidebar_frame.grid(row=1, column=0, sticky="nsw", padx=(10, 0), pady=(10, 10))
             self.sidebar_open = True
 
     def add_sidebar_items(self):
@@ -122,6 +160,12 @@ class MyApp(ctk.CTk):
         page6_button = ctk.CTkButton(self.sidebar_frame, text="Model Comparison", command=lambda: self.show_page("Page6"), **btn_kwargs)
         page6_button.pack(pady=4, padx=10, fill="x")
         
+        # Separator and Settings entry
+        spacer = ctk.CTkLabel(self.sidebar_frame, text="")
+        spacer.pack(pady=(8, 0))
+        settings_button = ctk.CTkButton(self.sidebar_frame, text="Settings", command=lambda: self.show_page("Settings"), **btn_kwargs)
+        settings_button.pack(pady=4, padx=10, fill="x")
+        
 
     def initialize_pages(self):
         """Initialize all pages."""
@@ -132,16 +176,32 @@ class MyApp(ctk.CTk):
         self.pages["Page4"] = Page4(self.container) 
         self.pages["Page5"] = Page5(self.container)
         self.pages["Page6"] = Page6(self.container)
+        self.pages["Settings"] = SettingsPage(self.container, self.config_manager)
         
-        # Hide all pages initially
+        # Hide all pages initially (only if already managed by grid)
         for page in self.pages.values():
-            page.grid_remove()
+            try:
+                if hasattr(page, "winfo_manager") and page.winfo_manager() == "grid":
+                    page.grid_remove()
+            except Exception:
+                # If a page isn't yet managed or was destroyed, skip safely
+                pass
 
     def show_page(self, page_name):
         """Display the selected page."""
+        # Hide only pages that exist and are currently managed by grid
         for page in self.pages.values():
-            page.grid_remove()  # Hide all pages
-        self.pages[page_name].grid(row=0, column=0, sticky="nsew")  # Show selected page
+            try:
+                if page.winfo_exists() and getattr(page, "winfo_manager", lambda: "")() == "grid":
+                    page.grid_remove()
+            except Exception:
+                # If a page isn't yet managed or was destroyed, skip safely
+                pass
+
+        # Show the selected page if it exists
+        selected = self.pages.get(page_name)
+        if selected is not None and selected.winfo_exists():
+            selected.grid(row=0, column=0, sticky="nsew")
 
     def toggle_settings_panel(self):
         """Show/Hide the small settings panel under the menu button."""
@@ -179,15 +239,15 @@ class MyApp(ctk.CTk):
 
             # Panels
             try:
+                self.header.configure(fg_color=panel, border_width=0)
+            except Exception:
+                pass
+            try:
                 self.sidebar_frame.configure(fg_color=panel, border_width=1, border_color=border)
             except Exception:
                 pass
             try:
                 self.container.configure(fg_color=panel, border_width=1, border_color=border)
-            except Exception:
-                pass
-            try:
-                self.settings_panel.configure(fg_color=panel, border_width=1, border_color=border)
             except Exception:
                 pass
 

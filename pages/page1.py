@@ -29,8 +29,20 @@ class Page1(ctk.CTkFrame):
         # Initialize Tweepy Client
         self.twitter_client = self.initialize_twitter_client()
 
-        label = ctk.CTkLabel(self.scrollable, text="Sentiment Analysis Inputs", font=("Arial", 20))
-        label.pack(pady=10)
+        label = ctk.CTkLabel(self.scrollable, text="Sentiment Analysis", font=("Arial", 24, "bold"))
+        label.pack(pady=(10, 2))
+        intro = ctk.CTkLabel(
+            self.scrollable,
+            text=(
+                "Analyze a single tweet, free text, hashtags, or accounts. "
+                "Choose an input type below, paste your content, and view the sentiment breakdown."
+            ),
+            font=("Arial", 14),
+            wraplength=850,
+            justify="left",
+            text_color=theme.subtle_text_color(),
+        )
+        intro.pack(pady=(0, 12), padx=4, anchor="w")
 
         self.option_var = ctk.StringVar(value="Tweet")
         self.option_menu = ctk.CTkOptionMenu(
@@ -41,8 +53,15 @@ class Page1(ctk.CTkFrame):
         )
         self.option_menu.pack(pady=10)
 
-        self.description_label = ctk.CTkLabel(self.scrollable, text="Enter Tweet URL:", font=("Arial", 16))
-        self.description_label.pack(pady=5)
+        self.description_label = ctk.CTkLabel(
+            self.scrollable,
+            text="Enter Tweet URL:",
+            font=("Arial", 14),
+            wraplength=850,
+            justify="left",
+            text_color=theme.subtle_text_color(),
+        )
+        self.description_label.pack(pady=5, padx=4, anchor="w")
 
         self.url_entry = ctk.CTkEntry(self.scrollable, placeholder_text="Enter tweet URL here...")
         self.url_entry.pack(pady=10)
@@ -75,9 +94,10 @@ class Page1(ctk.CTkFrame):
         except Exception:
             pass
 
-        # Display initial chart
+        # Display initial chart with a short animation
         self.last_counts = [40, 30, 30]
-        self.create_pie_chart(self.last_counts)
+        self._pie_anim_after = None
+        self.animate_pie(self.last_counts)
 
     def initialize_twitter_client(self):
         """Initialize the Twitter API client with proper error handling."""
@@ -92,8 +112,9 @@ class Page1(ctk.CTkFrame):
             return None
 
     def create_pie_chart(self, counts):
-        """Create a pie chart visualization from sentiment counts."""
+        """Create a professional donut pie chart with theme-aware styling."""
         sentiments = ["Neutral", "Negative", "Positive"]
+
         # Remember last counts
         try:
             self.last_counts = counts
@@ -115,21 +136,49 @@ class Page1(ctk.CTkFrame):
         if self.matplotlib_figure:
             plt.close(self.matplotlib_figure)
 
-        # Create new figure
-        self.matplotlib_figure, ax = plt.subplots()
+        # Create new square figure for cleaner donut
+        self.matplotlib_figure, ax = plt.subplots(figsize=(5.2, 5.2))
         self.matplotlib_figure.patch.set_facecolor(bg)
         ax.set_facecolor(bg)
 
-        # Create pie chart
-        ax.pie(
+        # Define palette (neutral gray, red, green)
+        palette = ["#6C757D", "#E74C3C", "#2ECC71"]
+
+        # Small separation for readability
+        explode = [0.02, 0.02, 0.02]
+
+        def _fmt_pct(pct: float) -> str:
+            return f"{pct:.1f}%" if pct >= 3 else ""
+
+        wedges, texts, autotexts = ax.pie(
             counts,
             labels=sentiments,
-            autopct="%1.1f%%",
+            autopct=_fmt_pct,
+            pctdistance=0.8,
             startangle=90,
-            textprops={"color": txt},
-            colors=["#ffb300", "#e91e63", "#4caf50"]  # amber, pink, green
+            explode=explode,
+            textprops={"color": txt, "fontsize": 11},
+            colors=palette,
+            wedgeprops={"linewidth": 1.0, "edgecolor": bg},
         )
-        ax.set_title("Sentiment Analysis Results", color=txt)
+
+        # Donut hole
+        centre_circle = plt.Circle((0, 0), 0.55, fc=bg)
+        ax.add_artist(centre_circle)
+        ax.axis("equal")  # Equal aspect ratio for a perfect circle
+
+        # Center label showing dominant sentiment
+        try:
+            labels_order = sentiments
+            dominant_idx = int(max(range(len(counts)), key=lambda i: counts[i]))
+            dominant = labels_order[dominant_idx]
+            total = sum(counts) if sum(counts) else 1
+            dom_pct = counts[dominant_idx] * 100.0 / total
+            ax.text(0, 0, f"{dominant}\n{dom_pct:.0f}%", ha="center", va="center", fontsize=14, color=txt)
+        except Exception:
+            pass
+
+        ax.set_title("Sentiment Distribution", color=txt, fontsize=14, pad=14)
 
         # Update canvas
         if self.canvas:
@@ -137,7 +186,7 @@ class Page1(ctk.CTkFrame):
 
         self.canvas = FigureCanvasTkAgg(self.matplotlib_figure, master=self.canvas_frame)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack()
+        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=6, pady=6)
         plt.close(self.matplotlib_figure)
 
     def update_theme(self, mode):
@@ -244,7 +293,7 @@ class Page1(ctk.CTkFrame):
         
         # Update UI on main thread
         self.after(0, update_text_area)
-        self.after(0, lambda: self.create_pie_chart(counts))
+        self.after(0, lambda: self.animate_pie(counts))
 
     def fetch_tweet_text(self, tweet_url):
         """Fetch tweet text from URL with enhanced error handling and caching."""
@@ -302,6 +351,13 @@ class Page1(ctk.CTkFrame):
                 except Exception:
                     pass
                 self.countdown_job = None
+            # Cancel pie animation
+            if hasattr(self, '_pie_anim_after') and self._pie_anim_after:
+                try:
+                    self.after_cancel(self._pie_anim_after)
+                except Exception:
+                    pass
+                self._pie_anim_after = None
                 
             # Mark as not running
             self.running = False
@@ -310,10 +366,85 @@ class Page1(ctk.CTkFrame):
 
     def destroy(self):
         """Clean up resources when page is destroyed."""
-        if self.canvas:
-            self.canvas.get_tk_widget().destroy()
+        try:
+            # Cancel any pending animation callbacks
+            if hasattr(self, '_pie_anim_after') and self._pie_anim_after:
+                try:
+                    self.after_cancel(self._pie_anim_after)
+                except Exception:
+                    pass
+                self._pie_anim_after = None
+
+            # Destroy canvas widget if present
+            if self.canvas:
+                try:
+                    self.canvas.get_tk_widget().destroy()
+                except Exception:
+                    pass
+                self.canvas = None
+
+            # Close any lingering matplotlib figure
+            if getattr(self, 'matplotlib_figure', None):
+                try:
+                    plt.close(self.matplotlib_figure)
+                except Exception:
+                    pass
+                self.matplotlib_figure = None
+        finally:
+            # Ensure base class resources are released
+            try:
+                super().destroy()
+            except Exception:
+                pass
+
+    def animate_pie(self, target_counts, duration_ms: int = 700, steps: int = 20):
+        """Animate the pie chart from current counts to target counts."""
+        try:
+            # Cancel any existing animation
+            if hasattr(self, '_pie_anim_after') and self._pie_anim_after:
+                try:
+                    self.after_cancel(self._pie_anim_after)
+                except Exception:
+                    pass
+                self._pie_anim_after = None
+
+            start = getattr(self, 'last_counts', [0, 0, 0])
+            # Guard against size mismatch
+            if len(start) != len(target_counts):
+                start = [0] * len(target_counts)
+
+            step_time = max(int(duration_ms / max(steps, 1)), 1)
+            state = {"i": 0}
+
+            def ease_out(t: float) -> float:
+                # Smooth easing for nicer feel
+                return 1 - (1 - t) * (1 - t)
+
+            def tick():
+                i = state["i"]
+                t = ease_out(i / float(steps)) if steps > 0 else 1.0
+                interp = [s + (e - s) * t for s, e in zip(start, target_counts)]
+                try:
+                    self.create_pie_chart(interp)
+                except Exception:
+                    pass
+                if i < steps:
+                    state["i"] = i + 1
+                    self._pie_anim_after = self.after(step_time, tick)
+                else:
+                    # Snap to final and store
+                    try:
+                        self.create_pie_chart(target_counts)
+                    except Exception:
+                        pass
+                    self.last_counts = target_counts
+                    self._pie_anim_after = None
+
+            tick()
+        except Exception:
+            # Fallback: render final state
+            try:
+                self.create_pie_chart(target_counts)
+            except Exception:
+                pass
             self.canvas = None
-        if self.matplotlib_figure:
-            plt.close(self.matplotlib_figure)
-            self.matplotlib_figure = None
-        super().destroy()

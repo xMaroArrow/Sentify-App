@@ -1,0 +1,6 @@
+{
+  "confidence_threshold": 70,
+  "remove_urls": true,
+  "remove_mentions": true,
+  "model": "cardiffnlp/twitter-roberta-base-sentiment"
+}
