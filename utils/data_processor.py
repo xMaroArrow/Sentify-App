@@ -519,7 +519,7 @@ class DataProcessor:
         train_dataset = TensorDataset(
             train_encodings["input_ids"],
             train_encodings["attention_mask"],
-            torch.tensor(self.train_data["labels"])
+            torch.tensor(self.train_data["labels"], dtype=torch.long)
         )
         
         # Tokenize test data
@@ -534,7 +534,7 @@ class DataProcessor:
         test_dataset = TensorDataset(
             test_encodings["input_ids"],
             test_encodings["attention_mask"],
-            torch.tensor(self.test_data["labels"])
+            torch.tensor(self.test_data["labels"], dtype=torch.long)
         )
         
         # Tokenize validation data if available
@@ -551,7 +551,7 @@ class DataProcessor:
             val_dataset = TensorDataset(
                 val_encodings["input_ids"],
                 val_encodings["attention_mask"],
-                torch.tensor(self.val_data["labels"])
+                torch.tensor(self.val_data["labels"], dtype=torch.long)
             )
         
         # Create dataloaders
@@ -603,26 +603,30 @@ class DataProcessor:
                 indices = indices + [0] * (max_len - len(indices))
             return indices
         
+        # Ensure a valid max sequence length
+        if not isinstance(self.max_seq_length, int) or self.max_seq_length <= 0:
+            self.max_seq_length = 128
+        
         # Convert train texts to sequences
         train_sequences = np.array([
             text_to_indices(text, self.max_seq_length) for text in self.train_data["texts"]
-        ])
+        ], dtype=np.int64)
         
         # Convert test texts to sequences
         test_sequences = np.array([
             text_to_indices(text, self.max_seq_length) for text in self.test_data["texts"]
-        ])
+        ], dtype=np.int64)
         
         # Create train dataset
         train_dataset = TensorDataset(
-            torch.tensor(train_sequences),
-            torch.tensor(self.train_data["labels"])
+            torch.tensor(train_sequences, dtype=torch.long),
+            torch.tensor(self.train_data["labels"], dtype=torch.long)
         )
         
         # Create test dataset
         test_dataset = TensorDataset(
-            torch.tensor(test_sequences),
-            torch.tensor(self.test_data["labels"])
+            torch.tensor(test_sequences, dtype=torch.long),
+            torch.tensor(self.test_data["labels"], dtype=torch.long)
         )
         
         # Create val dataset if available
@@ -631,11 +635,11 @@ class DataProcessor:
         if self.val_data is not None:
             val_sequences = np.array([
                 text_to_indices(text, self.max_seq_length) for text in self.val_data["texts"]
-            ])
+            ], dtype=np.int64)
             
             val_dataset = TensorDataset(
-                torch.tensor(val_sequences),
-                torch.tensor(self.val_data["labels"])
+                torch.tensor(val_sequences, dtype=torch.long),
+                torch.tensor(self.val_data["labels"], dtype=torch.long)
             )
             
             val_loader = DataLoader(
