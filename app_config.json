@@ -3,7 +3,7 @@
   "remove_urls": true,
   "remove_mentions": true,
   "model": "cardiffnlp/twitter-roberta-base-sentiment",
-  "reddit_client_id": "k1i1d87Shv0AgCPbQ1hhUA",
-  "reddit_client_secret": "WEoCUeg5Zy8QDV-bIB5Nh9PvNA8stg",
-  "reddit_user_agent": "Sentify-App:1.0 (by u/Ok_Technology_233)"
+  "reddit_client_id": "y_V7rsC7los0whtY1O2g0g",
+  "reddit_client_secret": "HkmoIrvPiN9FmFCyh9-1dKqkQYd5OA",
+  "reddit_user_agent": "Sentify-App:1.0 (by u/xMaroMask)"
 }
