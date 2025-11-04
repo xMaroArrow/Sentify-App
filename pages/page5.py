@@ -380,9 +380,11 @@ class Page5(ctk.CTkFrame):
         # Create a grid of LSTM parameters
         params = [
             ("LSTM Layers:", "lstm_layers", ["1", "2", "3"], "2"),
-            ("Hidden Size:", "lstm_hidden_size", ["64", "128", "256", "512"], "256"),
+            ("Hidden Size:", "lstm_hidden_size", ["128", "256", "384", "512"], "256"),
             ("Embedding Dim:", "lstm_embedding_dim", ["100", "200", "300"], "300"),
-            ("Dropout Rate:", "lstm_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.3")
+            ("Dropout Rate:", "lstm_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5"),
+            ("RNN Type:", "lstm_rnn_type", ["LSTM", "GRU"], "LSTM"),
+            ("Embedding Dropout:", "lstm_embedding_dropout", ["0.0", "0.1", "0.2", "0.3", "0.5"], "0.2")
         ]
         
         self.lstm_params = {}
@@ -404,14 +406,22 @@ class Page5(ctk.CTkFrame):
             )
             menu.grid(row=i, column=1, padx=10, pady=5, sticky="w")
         
-        # Add bidirectional LSTM option
+        # Add bidirectional and attention options
         self.lstm_bidirectional = ctk.BooleanVar(value=True)
         bidirectional_check = ctk.CTkCheckBox(
             lstm_config_frame,
-            text="Bidirectional LSTM",
+            text="Bidirectional",
             variable=self.lstm_bidirectional
         )
-        bidirectional_check.grid(row=len(params), column=0, columnspan=2, padx=10, pady=5, sticky="w")
+        bidirectional_check.grid(row=len(params), column=0, padx=10, pady=5, sticky="w")
+
+        self.lstm_use_attention = ctk.BooleanVar(value=True)
+        attention_check = ctk.CTkCheckBox(
+            lstm_config_frame,
+            text="Use Attention",
+            variable=self.lstm_use_attention
+        )
+        attention_check.grid(row=len(params), column=1, padx=10, pady=5, sticky="w")
         
         # CNN models tab
         cnn_tab = self.model_tabview.tab("CNN")
@@ -423,9 +433,12 @@ class Page5(ctk.CTkFrame):
         # Create a grid of CNN parameters
         cnn_params = [
             ("Filter Sizes:", "cnn_filter_sizes", ["[3,4,5]", "[2,3,4]", "[1,2,3,4,5]"], "[3,4,5]"),
-            ("Num Filters:", "cnn_num_filters", ["100", "200", "300"], "100"),
+            ("Num Filters:", "cnn_num_filters", ["100", "200", "300"], "200"),
             ("Embedding Dim:", "cnn_embedding_dim", ["100", "200", "300"], "300"),
-            ("Dropout Rate:", "cnn_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5")
+            ("Dropout Rate:", "cnn_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5"),
+            ("Embedding Dropout:", "cnn_embedding_dropout", ["0.0", "0.1", "0.2", "0.3", "0.5"], "0.2"),
+            ("Activation:", "cnn_activation", ["relu", "leaky_relu", "tanh", "elu"], "relu"),
+            ("Pooling:", "cnn_pool_type", ["max", "avg", "adaptive"], "max")
         ]
         
         self.cnn_params = {}
@@ -447,6 +460,15 @@ class Page5(ctk.CTkFrame):
             )
             menu.grid(row=i, column=1, padx=10, pady=5, sticky="w")
         
+        # Add BatchNorm option (checkbox below the grid)
+        self.cnn_batch_norm = ctk.BooleanVar(value=True)
+        batchnorm_check = ctk.CTkCheckBox(
+            cnn_config_frame,
+            text="Batch Normalization",
+            variable=self.cnn_batch_norm
+        )
+        batchnorm_check.grid(row=len(cnn_params), column=0, columnspan=2, padx=10, pady=5, sticky="w")
+
         # Custom models tab
         custom_tab = self.model_tabview.tab("Custom")
         
@@ -549,10 +571,14 @@ class Page5(ctk.CTkFrame):
         
         # Create a grid for training parameters
         train_params = [
-            ("Batch Size:", "batch_size", ["8", "16", "32", "64"], "32"),
-            ("Learning Rate:", "learning_rate", ["0.001", "0.0005", "0.0001"], "0.001"),
+            ("Batch Size:", "batch_size", ["16", "32", "64"], "32"),
+            ("Learning Rate:", "learning_rate", ["0.001", "0.0005", "0.0001"], "0.0005"),
             ("Epochs:", "epochs", ["3", "5", "10", "20"], "5"),
-            ("Optimizer:", "optimizer", ["Adam", "AdamW", "SGD"], "Adam")
+            ("Optimizer:", "optimizer", ["Adam", "AdamW", "SGD", "RMSprop"], "AdamW"),
+            ("Weight Decay:", "weight_decay", ["0.0", "0.0001", "0.0005", "0.001"], "0.0001"),
+            ("Scheduler:", "scheduler", ["none", "step", "cosine", "plateau"], "plateau"),
+            ("Clip Gradients:", "clip_grad", ["True", "False"], "True"),
+            ("Max Grad Norm:", "max_grad_norm", ["0.5", "1.0", "2.0", "5.0"], "1.0")
         ]
         
         self.train_params = {}
@@ -1372,6 +1398,11 @@ class Page5(ctk.CTkFrame):
         training_params['batch_size'] = int(training_params['batch_size'])
         training_params['epochs'] = int(training_params['epochs'])
         training_params['learning_rate'] = float(training_params['learning_rate'])
+        training_params['weight_decay'] = float(training_params.get('weight_decay', 0.0))
+        # Boolean for clip_grad
+        cg = training_params.get('clip_grad', 'True')
+        training_params['clip_grad'] = True if str(cg).lower() == 'true' else False
+        training_params['max_grad_norm'] = float(training_params.get('max_grad_norm', 1.0))
         
         # Get model-specific parameters
         model_params = {}
@@ -1390,6 +1421,9 @@ class Page5(ctk.CTkFrame):
             model_params['lstm_embedding_dim'] = int(model_params['lstm_embedding_dim'])
             model_params['lstm_dropout'] = float(model_params['lstm_dropout'])
             model_params['bidirectional'] = self.lstm_bidirectional.get()
+            model_params['lstm_rnn_type'] = model_params.get('lstm_rnn_type', 'LSTM')
+            model_params['lstm_embedding_dropout'] = float(model_params.get('lstm_embedding_dropout', '0.2'))
+            model_params['lstm_use_attention'] = self.lstm_use_attention.get()
             
         elif model_type == "CNN":
             model_params = {
@@ -1401,6 +1435,10 @@ class Page5(ctk.CTkFrame):
             model_params['cnn_num_filters'] = int(model_params['cnn_num_filters'])
             # Parse filter sizes string to actual list
             model_params['cnn_filter_sizes'] = eval(model_params['cnn_filter_sizes'])
+            model_params['cnn_embedding_dropout'] = float(model_params.get('cnn_embedding_dropout', '0.2'))
+            model_params['cnn_activation'] = model_params.get('cnn_activation', 'relu')
+            model_params['cnn_pool_type'] = model_params.get('cnn_pool_type', 'max')
+            model_params['cnn_batch_norm'] = self.cnn_batch_norm.get()
         
         # Reset progress bar and log
         self.progress_bar.set(0)
@@ -1452,10 +1490,17 @@ class Page5(ctk.CTkFrame):
                     embedding_dim=model_params['lstm_embedding_dim'],
                     dropout=model_params['lstm_dropout'],
                     bidirectional=model_params['bidirectional'],
+                    rnn_type=model_params['lstm_rnn_type'],
                     batch_size=training_params['batch_size'],
                     lr=training_params['learning_rate'],
+                    weight_decay=training_params['weight_decay'],
                     epochs=training_params['epochs'],
-                    optimizer=training_params['optimizer']
+                    optimizer=training_params['optimizer'],
+                    scheduler=training_params.get('scheduler', 'none'),
+                    embedding_dropout=model_params['lstm_embedding_dropout'],
+                    use_attention=model_params['lstm_use_attention'],
+                    clip_grad=training_params['clip_grad'],
+                    max_grad_norm=training_params['max_grad_norm']
                 )
             
             elif model_type == "CNN":
@@ -1466,10 +1511,18 @@ class Page5(ctk.CTkFrame):
                     num_filters=model_params['cnn_num_filters'],
                     embedding_dim=model_params['cnn_embedding_dim'],
                     dropout=model_params['cnn_dropout'],
+                    embedding_dropout=model_params['cnn_embedding_dropout'],
+                    activation=model_params['cnn_activation'],
+                    batch_norm=model_params['cnn_batch_norm'],
+                    pool_type=model_params['cnn_pool_type'],
                     batch_size=training_params['batch_size'],
                     lr=training_params['learning_rate'],
+                    weight_decay=training_params['weight_decay'],
                     epochs=training_params['epochs'],
-                    optimizer=training_params['optimizer']
+                    optimizer=training_params['optimizer'],
+                    scheduler=training_params.get('scheduler', 'none'),
+                    clip_grad=training_params['clip_grad'],
+                    max_grad_norm=training_params['max_grad_norm']
                 )
             
             # Update model list for evaluation

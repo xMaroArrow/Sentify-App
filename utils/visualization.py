@@ -200,7 +200,7 @@ class ModelComparisonVisualizer:
             header_color = "#333333"
             header_text_color = "white"
         
-        # Turn off axis
+        # Turn off axis and tighten layout to make table fit
         ax.axis('tight')
         ax.axis('off')
         
@@ -250,10 +250,16 @@ class ModelComparisonVisualizer:
         row_labels.append('Accuracy')
         rows.append([f"{accuracy:.3f}", "", "", ""])
         
+        # Shorten overly long row labels to prevent overflow
+        def _shorten(lbl, maxlen=18):
+            return (lbl[:maxlen-1] + '…') if isinstance(lbl, str) and len(lbl) > maxlen else lbl
+
+        display_row_labels = [_shorten(l) for l in row_labels]
+
         # Create table
         table = ax.table(
             cellText=rows,
-            rowLabels=row_labels,
+            rowLabels=display_row_labels,
             colLabels=columns,
             loc='center',
             cellLoc='center',
@@ -261,21 +267,44 @@ class ModelComparisonVisualizer:
         )
         
         # Style table
+        # Dynamic font sizing and scaling based on number of rows
+        n_rows = len(rows)
         table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.2, 1.5)
+        # Smaller font for many classes; keep within [7, 11]
+        base_font = 11 if publication_ready else 10
+        cell_font = max(7, min(base_font, int(base_font - max(0, n_rows - 6) * 0.4)))
+        table.set_fontsize(cell_font)
+        # Adjust vertical scale to fit more rows; narrower height for many rows
+        v_scale = 1.2 if n_rows <= 6 else max(0.7, 1.6 - 0.08 * n_rows)
+        table.scale(1.05, v_scale)
         
         # Add title
         title = f"Classification Metrics - {model_name}" if model_name else "Classification Metrics"
-        ax.set_title(title, fontsize=12, color=main_color, pad=20)
+        ax.set_title(title, fontsize=12, color=main_color, pad=10)
         
         # Style cells
-        for (row, col), cell in table.get_celld().items():
+        cells = table.get_celld()
+        for (row, col), cell in cells.items():
             cell.set_edgecolor(grid_color)
-            if row == 0:  # Header
+            # Header row is row 0 in matplotlib tables
+            if row == 0:
                 cell.set_text_props(weight='bold', color=header_text_color)
             else:
                 cell.set_text_props(color=main_color)
+            # Left-align row labels (col == -1)
+            if col == -1:
+                cell._loc = 'left'
+                cell.PAD = 0.02
+        
+        # Give extra room on the left for row labels and tighten
+        try:
+            fig.subplots_adjust(left=0.25, right=0.98, top=0.88, bottom=0.05)
+        except Exception:
+            pass
+        try:
+            fig.tight_layout()
+        except Exception:
+            pass
     
     def plot_metrics_comparison(self, fig, ax, model_names: List[str],
                                accuracy: List[float], precision: List[float],

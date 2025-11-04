@@ -2490,6 +2490,21 @@ class ModelTrainer:
                 hyperparams = json.load(f)
             print("Loaded hyperparameters")
         
+        # If prior evaluation results are available, load and return (skip recompute)
+        prior_results_path = os.path.join(model_path, "evaluation_results.json")
+        if os.path.exists(prior_results_path):
+            try:
+                with open(prior_results_path, "r") as f:
+                    cached = json.load(f)
+                # Attach auxiliary metadata if available
+                cached["model_name"] = model_name
+                cached["model_type"] = metadata.get("model_type", cached.get("model_type", "pytorch"))
+                print(f"Loaded cached evaluation results from {prior_results_path}")
+                return cached
+            except Exception as _:
+                # Fall back to full evaluation if cache cannot be read
+                pass
+
         # Load model
         print(f"Loading model from {model_path}...")
         if model_type == "transformer":
@@ -2633,6 +2648,26 @@ class ModelTrainer:
         print("Class-wise metrics:")
         for i, class_name in enumerate(results["classes"]):
             print(f"  {class_name}: Precision={results['precision'][i]:.4f}, Recall={results['recall'][i]:.4f}, F1={results['f1'][i]:.4f}")
+        
+        # Save evaluation so future runs can load without recomputing
+        try:
+            results_path = os.path.join(model_path, "evaluation_results.json")
+            serializable_results = {}
+            for k, v in results.items():
+                if isinstance(v, np.ndarray):
+                    serializable_results[k] = v.tolist()
+                elif isinstance(v, dict):
+                    serializable_results[k] = {
+                        sk: (sv.tolist() if isinstance(sv, np.ndarray) else sv)
+                        for sk, sv in v.items()
+                    }
+                else:
+                    serializable_results[k] = v
+            with open(results_path, "w") as f:
+                json.dump(serializable_results, f, indent=2)
+            print(f"Saved evaluation to {results_path}")
+        except Exception as e:
+            print(f"Warning: failed to save evaluation results: {e}")
         
         return results
     
