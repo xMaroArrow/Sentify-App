@@ -1,0 +1,14 @@
+[2025-11-04 20:04:44]
+Traceback (most recent call last):
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\main.py", line 10, in <module>
+    from pages.page_finetune import PageFineTune
+  File "D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App\pages\page_finetune.py", line 7
+    from tkinter
+                 ^
+SyntaxError: invalid syntax
+(s_app)
+Dominant sentiment: Neutral
+  Negative: 44.29%
+  Neutral: 52.07%
+  Positive: 3.65%
+

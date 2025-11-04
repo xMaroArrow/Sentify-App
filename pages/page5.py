@@ -1,8 +1,9 @@
-# pages/page5.py
+﻿# pages/page5.py
 import customtkinter as ctk
 import threading
 import os
 import time
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -582,6 +583,31 @@ class Page5(ctk.CTkFrame):
         ]
         
         self.train_params = {}
+        # Device selection and indicator
+        device_row = ctk.CTkFrame(training_frame)
+        device_row.pack(fill="x", padx=10, pady=(0, 5))
+        ctk.CTkLabel(device_row, text="Compute Device:", font=("Arial", 13)).pack(side="left", padx=6)
+        self.device_pref_var = ctk.StringVar(value="Auto")
+        ctk.CTkOptionMenu(device_row, values=["Auto", "GPU", "CPU"], variable=self.device_pref_var,
+                          command=self._on_device_change, width=100).pack(side="left", padx=6)
+        self.device_info_label = ctk.CTkLabel(device_row, text=f"Device: {self.model_trainer.current_device_info()}")
+        self.device_info_label.pack(side="left", padx=10)
+        # Manual overrides (optional)
+        manual_frame = ctk.CTkFrame(training_frame)
+        manual_frame.pack(fill="x", padx=10, pady=(0, 5))
+        manual_title = ctk.CTkLabel(manual_frame, text="Manual Overrides (optional)", font=("Arial", 13, "bold"))
+        manual_title.grid(row=0, column=0, columnspan=6, padx=10, pady=(8, 2), sticky="w")
+
+        self.manual_batch_size = ctk.StringVar(value="")
+        self.manual_learning_rate = ctk.StringVar(value="")
+        self.manual_epochs = ctk.StringVar(value="")
+
+        ctk.CTkLabel(manual_frame, text="Batch Size:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_batch_size, width=100, placeholder_text="e.g. 48").grid(row=1, column=1, padx=5, pady=5)
+        ctk.CTkLabel(manual_frame, text="Learning Rate:").grid(row=1, column=2, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_learning_rate, width=120, placeholder_text="e.g. 0.0003").grid(row=1, column=3, padx=5, pady=5)
+        ctk.CTkLabel(manual_frame, text="Epochs:").grid(row=1, column=4, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_epochs, width=100, placeholder_text="e.g. 12").grid(row=1, column=5, padx=5, pady=5)
         
         for i, (label_text, param_name, options, default) in enumerate(train_params):
             label = ctk.CTkLabel(
@@ -1037,7 +1063,7 @@ class Page5(ctk.CTkFrame):
         compare_all_button.pack(side="left", padx=10, pady=10)
         
         # Model selection for comparison
-        model_select_frame = ctk.CTkFrame(compare_frame)  # This was missing or misnamed
+        model_select_frame = ctk.CTkFrame(compare_frame)
         model_select_frame.pack(fill="x", padx=10, pady=5)
         
         select_label = ctk.CTkLabel(
@@ -1048,7 +1074,8 @@ class Page5(ctk.CTkFrame):
         select_label.pack(pady=5, padx=10, anchor="w")
         
         # Checkboxes will be added dynamically once models are trained
-        self.model_checkboxes_frame = ctk.CTkFrame(model_select_frame)
+        # Use a scrollable frame to ensure all models are visible
+        self.model_checkboxes_frame = ctk.CTkScrollableFrame(model_select_frame, height=140)
         self.model_checkboxes_frame.pack(fill="x", padx=10, pady=5)
         
         self.model_checkbox_vars = {}
@@ -1079,7 +1106,8 @@ class Page5(ctk.CTkFrame):
             "Confusion Matrices", 
             "ROC Curves", 
             "Precision-Recall Curves",
-            "Training History"
+            "Training History",
+            "Loss Curves"
         ]
         compare_type_menu = ctk.CTkOptionMenu(
             compare_type_frame,
@@ -1403,6 +1431,28 @@ class Page5(ctk.CTkFrame):
         cg = training_params.get('clip_grad', 'True')
         training_params['clip_grad'] = True if str(cg).lower() == 'true' else False
         training_params['max_grad_norm'] = float(training_params.get('max_grad_norm', 1.0))
+        # Apply manual overrides if provided and valid
+        try:
+            if self.manual_batch_size.get().strip():
+                mb = int(float(self.manual_batch_size.get().strip()))
+                if mb > 0:
+                    training_params['batch_size'] = mb
+        except Exception:
+            pass
+        try:
+            if self.manual_learning_rate.get().strip():
+                mlr = float(self.manual_learning_rate.get().strip())
+                if mlr > 0:
+                    training_params['learning_rate'] = mlr
+        except Exception:
+            pass
+        try:
+            if self.manual_epochs.get().strip():
+                me = int(float(self.manual_epochs.get().strip()))
+                if me > 0:
+                    training_params['epochs'] = me
+        except Exception:
+            pass
         
         # Get model-specific parameters
         model_params = {}
@@ -1544,8 +1594,16 @@ class Page5(ctk.CTkFrame):
         progress = (epoch + 1) / total_epochs
         self.after(0, lambda: self.progress_bar.set(progress))
         
-        # Format metrics string
-        metrics_str = ", ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
+        # Format metrics string (use scientific notation for very small values like LR)
+        def _fmt(v):
+            try:
+                v = float(v)
+                if abs(v) < 1e-3:
+                    return f"{v:.2e}"
+                return f"{v:.4f}"
+            except Exception:
+                return str(v)
+        metrics_str = ", ".join([f"{k}: {_fmt(v)}" for k, v in metrics.items()])
         
         # Update progress text and log
         self.after(0, lambda: self.progress_text.configure(
@@ -1632,7 +1690,7 @@ class Page5(ctk.CTkFrame):
                 text=model_name,
                 variable=var
             )
-            checkbox.pack(side="left", padx=10, pady=5)
+            checkbox.pack(side="top", anchor="w", padx=10, pady=3)
     
     def _evaluate_model(self):
         """Evaluate the selected model on the test set."""
@@ -1867,11 +1925,32 @@ class Page5(ctk.CTkFrame):
             messagebox.showinfo("Information", "Please select at least two models to compare.")
             return
         
-        # Check if all selected models have evaluation results
+        # Ensure evaluation results and histories are available on demand
         for model_name in selected_models:
-            if model_name not in self.model_results or 'evaluation' not in self.model_results[model_name]:
-                messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
-                return
+            # Try to load evaluation if missing (from saved files)
+            if model_name not in self.model_results:
+                self.model_results[model_name] = {}
+            if 'evaluation' not in self.model_results[model_name]:
+                try:
+                    eval_path = os.path.join(self.model_trainer.model_dir, model_name, "evaluation_results.json")
+                    if os.path.exists(eval_path):
+                        with open(eval_path, "r") as f:
+                            self.model_results[model_name]['evaluation'] = json.load(f)
+                    else:
+                        messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
+                        return
+                except Exception:
+                    messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
+                    return
+            # Try to load training history if missing
+            if 'history' not in self.model_results[model_name]:
+                try:
+                    hist_path = os.path.join(self.model_trainer.model_dir, model_name, "history.json")
+                    if os.path.exists(hist_path):
+                        with open(hist_path, "r") as f:
+                            self.model_results[model_name]['history'] = json.load(f)
+                except Exception:
+                    pass
         
         # Get comparison type
         compare_type = self.compare_type_var.get()
@@ -1965,10 +2044,23 @@ class Page5(ctk.CTkFrame):
             for model_name in selected_models:
                 result = self.model_results[model_name]['evaluation']
                 model_names.append(model_name)
-                accuracy.append(result['accuracy'])
-                precision.append(np.mean(result['precision'].values()))
-                recall.append(np.mean(result['recall'].values()))
-                f1.append(np.mean(result['f1'].values()))
+                accuracy.append(float(result.get('accuracy', 0.0)))
+                def _avg(d):
+                    try:
+                        if isinstance(d, dict):
+                            vals = []
+                            for v in d.values():
+                                try:
+                                    vals.append(float(v))
+                                except Exception:
+                                    pass
+                            return float(np.mean(vals)) if vals else 0.0
+                        return float(d)
+                    except Exception:
+                        return 0.0
+                precision.append(_avg(result.get('precision', {})))
+                recall.append(_avg(result.get('recall', {})))
+                f1.append(_avg(result.get('f1', {})))
             
             self.visualizer.plot_metrics_comparison(
                 fig=fig,
@@ -2020,6 +2112,24 @@ class Page5(ctk.CTkFrame):
                     publication_ready=True
                 )
         
+        elif compare_type == "Loss Curves":
+            # Compare loss curves for selected models
+            fig, ax = plt.subplots(figsize=(10, 6))
+            histories = {}
+            for model_name in selected_models:
+                if 'history' in self.model_results[model_name]:
+                    histories[model_name] = self.model_results[model_name]['history']
+            if not histories:
+                messagebox.showinfo("Information", "No training history available for selected models.")
+                return
+            self.visualizer.plot_loss_history_comparison(
+                fig=fig,
+                ax=ax,
+                histories=histories,
+                title="Loss Curves Comparison",
+                publication_ready=True
+            )
+        
         # Create canvas with the new figure
         self.compare_canvas = FigureCanvasTkAgg(fig, master=self.compare_container)
         self.compare_canvas.draw()
@@ -2035,3 +2145,21 @@ class Page5(ctk.CTkFrame):
         
         # Call parent's destroy method
         super().destroy()
+
+    def _on_device_change(self, choice):
+        """Handle compute device preference change (Auto/GPU/CPU)."""
+        pref = (choice or 'Auto').lower()
+        if pref == 'gpu':
+            self.model_trainer.set_compute_device('gpu')
+        elif pref == 'cpu':
+            self.model_trainer.set_compute_device('cpu')
+        else:
+            self.model_trainer.set_compute_device('auto')
+        # refresh indicator
+        try:
+            self.device_info_label.configure(text=f"Device: {self.model_trainer.current_device_info()}")
+        except Exception:
+            pass
+
+
+

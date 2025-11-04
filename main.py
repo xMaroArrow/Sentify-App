@@ -7,6 +7,7 @@ from pages.page3 import Page3
 from pages.page4 import Page4
 from pages.page5 import Page5
 from pages.page6 import Page6
+from pages.page_finetune import PageFineTune
 
 class MyApp(ctk.CTk):
     def __init__(self):
@@ -90,6 +91,9 @@ class MyApp(ctk.CTk):
         
         page6_button = ctk.CTkButton(self.sidebar_frame, text="Model Comparison", command=lambda: self.show_page("Page6"))
         page6_button.pack(pady=5)
+
+        finetune_button = ctk.CTkButton(self.sidebar_frame, text="Fine-Tune", command=lambda: self.show_page("FineTune"))
+        finetune_button.pack(pady=5)
         
 
     def initialize_pages(self):
@@ -101,6 +105,7 @@ class MyApp(ctk.CTk):
         self.pages["Page4"] = Page4(self.container) 
         self.pages["Page5"] = Page5(self.container)
         self.pages["Page6"] = Page6(self.container)
+        self.pages["FineTune"] = PageFineTune(self.container)
         
         # Hide all pages initially
         for page in self.pages.values():

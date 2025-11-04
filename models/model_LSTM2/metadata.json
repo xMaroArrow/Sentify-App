@@ -1,8 +1,0 @@
-{
-  "model_type": "pytorch",
-  "save_time": "2025-11-04 15:58:10",
-  "model_name": "model_LSTM2",
-  "pytorch_version": "2.5.1+cpu",
-  "cuda_version": "N/A",
-  "device": "cpu"
-}

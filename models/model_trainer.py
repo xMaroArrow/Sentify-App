@@ -172,6 +172,44 @@ class ModelTrainer:
         
         # Print model directory
         print(f"Models will be saved to: {os.path.abspath(model_dir)}")
+
+    def set_compute_device(self, preference: str = "auto"):
+        """Set compute device preference at runtime.
+
+        Args:
+            preference: 'auto', 'gpu', or 'cpu'
+        """
+        pref = (preference or "auto").lower()
+        if pref == "gpu" and torch.cuda.is_available():
+            self.device = torch.device("cuda:0")
+            # enable AMP if CUDA available
+            self.use_amp = hasattr(torch.cuda, 'amp')
+            try:
+                torch.backends.cudnn.benchmark = True
+            except Exception:
+                pass
+        elif pref == "cpu":
+            self.device = torch.device("cpu")
+            self.use_amp = False
+        else:
+            # auto: prefer GPU if present
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda:0")
+                self.use_amp = hasattr(torch.cuda, 'amp')
+            else:
+                self.device = torch.device("cpu")
+                self.use_amp = False
+        print(f"Compute device set to: {self.device} | AMP: {self.use_amp}")
+
+    def current_device_info(self) -> str:
+        """Return a human-readable device description."""
+        try:
+            if self.device and getattr(self.device, 'type', '') == 'cuda' and torch.cuda.is_available():
+                name = torch.cuda.get_device_name(0)
+                return f"cuda:0 - {name}"
+        except Exception:
+            pass
+        return "cpu"
     
     def _setup_gpu(self):
         """Configure GPU for optimal performance."""
@@ -2448,6 +2486,110 @@ class ModelTrainer:
                     models.append(item)
         
         return models
+
+    def train_transformer_finetune(self,
+                                   data_processor: 'DataProcessor',
+                                   model_name: str,
+                                   pretrained_model: str,
+                                   max_length: int = 128,
+                                   batch_size: int = 16,
+                                   lr: float = 2e-5,
+                                   weight_decay: float = 0.01,
+                                   warmup_ratio: float = 0.1,
+                                   epochs: int = 3,
+                                   freeze_base: bool = False,
+                                   unfreeze_last_n_layers: int = 0,
+                                   use_amp: bool = True,
+                                   class_weighting: bool = True,
+                                   early_stopping_patience: int = 2,
+                                   val_metric: str = "f1_macro",
+                                   checkpoint_every: int = 1,
+                                   grad_clip_max_norm: float = 1.0,
+                                   seed: int = 42,
+                                   callbacks: Optional[Dict[str, Callable]] = None) -> Dict:
+        """Fine-tune a transformer using existing training path and return evaluation results.
+
+        This wraps `train_transformer` with computed warmup_steps and relays progress via callbacks.
+        """
+        # Relay callbacks into existing callback system
+        cb = callbacks or {}
+
+        def _on_epoch_end(epoch, total_epochs, metrics):
+            if 'on_epoch_end' in cb and callable(cb['on_epoch_end']):
+                hist_ep = {
+                    'epoch': epoch + 1,
+                    'train_loss': metrics.get('loss', None),
+                    'val_loss': metrics.get('val_loss', None),
+                    'val_accuracy': metrics.get('val_accuracy', None),
+                    'accuracy': metrics.get('accuracy', None),
+                    'learning_rate': metrics.get('learning_rate', None),
+                }
+                cb['on_epoch_end'](epoch, hist_ep)
+
+        def _on_training_start(total_epochs, total_batches):
+            if 'on_log' in cb and callable(cb['on_log']):
+                cb['on_log'](f"Training started: {total_epochs} epochs, {total_batches} batches/epoch")
+
+        def _on_training_end(mname, metrics, training_time):
+            if 'on_log' in cb and callable(cb['on_log']):
+                cb['on_log'](f"Training completed in {training_time:.2f}s")
+
+        def _on_batch_end(batch, total_batches, epoch, total_epochs):
+            # Reduce chatter
+            pass
+
+        self.set_callbacks({
+            'on_epoch_end': _on_epoch_end,
+            'on_training_start': _on_training_start,
+            'on_training_end': _on_training_end,
+            'on_batch_end': _on_batch_end,
+        })
+
+        # Seed
+        try:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+        except Exception:
+            pass
+
+        # Prepare loaders once to compute warmup steps
+        loaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size,
+                                                          tokenizer_name=pretrained_model,
+                                                          max_length=max_length)
+        steps_per_epoch = max(1, len(loaders['train']))
+        warmup_steps = int(warmup_ratio * steps_per_epoch * max(1, epochs))
+
+        # Call existing transformer trainer
+        self.train_transformer(
+            data_processor=data_processor,
+            model_name=model_name,
+            pretrained_model=pretrained_model,
+            finetune=True,
+            freeze_layers=0,  # advanced freezing not mapped in this wrapper
+            dropout=0.1,
+            attention_dropout=0.1,
+            classifier_dropout=0.1,
+            hidden_dropout=0.1,
+            batch_size=batch_size,
+            lr=lr,
+            weight_decay=weight_decay,
+            warmup_steps=warmup_steps,
+            epochs=epochs,
+            optimizer="AdamW",
+            scheduler="linear",
+            max_seq_length=max_length,
+            gradient_accumulation_steps=1,
+            fp16_training=bool(use_amp and self.use_amp),
+            clip_grad=True,
+            max_grad_norm=grad_clip_max_norm,
+        )
+
+        # Evaluate once and return
+        results = self.evaluate_model(model_name=model_name, data_processor=data_processor)
+        if 'on_finished' in cb and callable(cb['on_finished']):
+            cb['on_finished'](results)
+        return results
     
     def evaluate_model(self, model_name: str, data_processor: DataProcessor) -> Dict:
         """

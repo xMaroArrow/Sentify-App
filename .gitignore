@@ -177,3 +177,7 @@ data/
 
 trash/
 trash/sentiment140.csv
+
+models/archive
+
+archive/
