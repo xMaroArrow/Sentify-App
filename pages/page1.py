@@ -24,6 +24,7 @@ from utils import theme
 class Page1(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
+        self._destroyed = False
         
         # Initialize the shared sentiment analyzer
         self.sentiment_analyzer = SentimentAnalyzer()
@@ -54,18 +55,19 @@ class Page1(ctk.CTkFrame):
         )
         intro.pack(pady=(0, 12), padx=4, anchor="w")
 
-        self.option_var = ctk.StringVar(value="Tweet")
+        # Default to Text and limit options
+        self.option_var = ctk.StringVar(value="Text")
         self.option_menu = ctk.CTkOptionMenu(
             self.scrollable,
             variable=self.option_var,
-            values=["Tweet", "Text", "Hashtag", "Account", "Reddit Thread"],
+            values=["Text", "Tweet", "Reddit Thread"],
             command=self.update_description
         )
         self.option_menu.pack(pady=10)
 
         self.description_label = ctk.CTkLabel(
             self.scrollable,
-            text="Enter Tweet URL:",
+            text="Enter your Text:",
             font=("Arial", 14),
             wraplength=850,
             justify="left",
@@ -73,7 +75,7 @@ class Page1(ctk.CTkFrame):
         )
         self.description_label.pack(pady=5, padx=4, anchor="w")
 
-        self.url_entry = ctk.CTkEntry(self.scrollable, placeholder_text="Enter tweet URL here...")
+        self.url_entry = ctk.CTkEntry(self.scrollable, placeholder_text="Enter your text here...")
         self.url_entry.pack(pady=10)
 
         self.error_label = ctk.CTkLabel(self.scrollable, text="", font=("Arial", 12), text_color="red")
@@ -123,6 +125,14 @@ class Page1(ctk.CTkFrame):
 
     def create_pie_chart(self, counts):
         """Create a professional donut pie chart with theme-aware styling."""
+        # If page is destroyed or not visible, skip drawing
+        try:
+            if getattr(self, "_destroyed", False) or not self.winfo_exists():
+                return
+            if not getattr(self, "canvas_frame", None) or not self.canvas_frame.winfo_exists():
+                return
+        except Exception:
+            return
         sentiments = ["Neutral", "Negative", "Positive"]
 
         # Remember last counts
@@ -437,6 +447,7 @@ class Page1(ctk.CTkFrame):
     def destroy(self):
         """Clean up resources when page is destroyed."""
         try:
+            self._destroyed = True
             # Cancel any pending animation callbacks
             if hasattr(self, '_pie_anim_after') and self._pie_anim_after:
                 try:
@@ -470,6 +481,8 @@ class Page1(ctk.CTkFrame):
     def animate_pie(self, target_counts, duration_ms: int = 700, steps: int = 20):
         """Animate the pie chart from current counts to target counts."""
         try:
+            if getattr(self, "_destroyed", False) or not self.winfo_exists():
+                return
             # Cancel any existing animation
             if hasattr(self, '_pie_anim_after') and self._pie_anim_after:
                 try:
@@ -491,6 +504,8 @@ class Page1(ctk.CTkFrame):
                 return 1 - (1 - t) * (1 - t)
 
             def tick():
+                if getattr(self, "_destroyed", False) or not self.winfo_exists():
+                    return
                 i = state["i"]
                 t = ease_out(i / float(steps)) if steps > 0 else 1.0
                 interp = [s + (e - s) * t for s, e in zip(start, target_counts)]
@@ -500,7 +515,10 @@ class Page1(ctk.CTkFrame):
                     pass
                 if i < steps:
                     state["i"] = i + 1
-                    self._pie_anim_after = self.after(step_time, tick)
+                    try:
+                        self._pie_anim_after = self.after(step_time, tick)
+                    except Exception:
+                        self._pie_anim_after = None
                 else:
                     # Snap to final and store
                     try:

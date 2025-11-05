@@ -1,8 +1,0 @@
-{
-  "model_type": "pytorch",
-  "save_time": "2025-11-04 20:12:01",
-  "model_name": "model_test3",
-  "pytorch_version": "2.5.1+cu121",
-  "cuda_version": "12.1",
-  "device": "cuda:0"
-}

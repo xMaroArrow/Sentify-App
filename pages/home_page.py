@@ -5,380 +5,424 @@ import os
 import platform
 from datetime import datetime
 
+from utils.config_manager import ConfigManager
+from addons.sentiment_analyzer import SentimentAnalyzer
+try:
+    from utils import theme
+except Exception:
+    class theme:  # fallback colors
+        @staticmethod
+        def border_color():
+            return "#3a3a3a"
+
+        @staticmethod
+        def subtle_text_color():
+            return "#a0a0a0"
+
+
 class HomePage(ctk.CTkFrame):
     """
-    Enhanced home page for the Sentiment Analysis Application.
-    
-    This page serves as the entry point for users, providing:
-    - Welcome information
-    - Application overview and feature highlights
-    - Quick navigation to key features
-    - Basic instructions and getting started guide
+    Feature-rich home page for a compelling first-run experience.
+
+    Sections inside a scrollable frame:
+    - Hero banner with CTA
+    - Feature highlights
+    - Live stats (metrics + model/system grid)
+    - Navigation grid (Page1–Page5, Settings)
+    - Quick Start checklist
+    - Testimonials carousel (placeholder)
+    - Footer (links + Release Notes)
     """
-    
+
     def __init__(self, parent):
         super().__init__(parent)
-        
-        # Set up scrollable container
+
+        self.config = ConfigManager()
+        self._testimonials = [
+            "“Sentify helped us understand our users at scale.”",
+            "“Great visuals and quick insights for our team.”",
+            "“Simple workflow from training to analysis.”",
+        ]
+        # Refresh steps to align with new navigation labels
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Visit Overview to analyze a sample sentence",
+            "Explore Trends to monitor a hashtag or topic",
+            "Review Reports for summaries",
+            "Export results from Exports when ready",
+        ]
+        self._testimonial_idx = 0
+
+        # Scrollable surface
         self.main_container = ctk.CTkScrollableFrame(self, width=950, height=800)
         self.main_container.pack(expand=True, fill="both", padx=10, pady=10)
-        
-        # Create sections
-        self._create_header()
-        self._create_welcome()
-        self._create_features()
-        self._create_navigation()
-        self._create_system_info()
+
+        # Sections
+        self._create_hero_banner()
+        self._create_feature_highlights()
+        self._create_live_stats()
+        self._create_navigation_grid()
+        self._create_quick_start()
+        self._create_testimonials()
         self._create_footer()
-        
-    def _create_header(self):
-        """Create the application header section."""
-        header_frame = ctk.CTkFrame(self.main_container)
-        header_frame.pack(fill="x", padx=10, pady=(0, 20))
-        
-        # Logo/Title section
-        title = ctk.CTkLabel(
-            header_frame, 
-            text="Sentify", 
-            font=("Arial", 48, "bold"),
-            text_color="#0078D7"
-        )
-        title.pack(pady=(20, 0))
-        
+
+    # -------------------- Hero --------------------
+    def _create_hero_banner(self):
+        header = ctk.CTkFrame(self.main_container)
+        header.pack(fill="x", padx=10, pady=(0, 14))
+        try:
+            header.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+
+        title = ctk.CTkLabel(header, text="Sentify", font=("Arial", 42, "bold"))
+        title.pack(pady=(16, 2))
+
         subtitle = ctk.CTkLabel(
-            header_frame,
-            text="AI-Powered Sentiment Intelligence Platform",
-            font=("Arial", 18)
+            header,
+            text="AI‑powered sentiment analysis for text and social media",
+            font=("Arial", 16),
+            text_color=theme.subtle_text_color(),
         )
         subtitle.pack(pady=(0, 10))
-        
-        # Try to load app logo image if available
+
+        # Optional logo
         try:
-            # Adjust the path to where your logo is located
             logo_path = os.path.join("assets", "logo.png")
             if os.path.exists(logo_path):
-                logo_image = Image.open(logo_path)
-                logo_image = logo_image.resize((150, 150))
-                logo_photo = ImageTk.PhotoImage(logo_image)
-                
-                logo_label = ctk.CTkLabel(header_frame, image=logo_photo, text="")
-                logo_label.image = logo_photo  # Keep a reference
-                logo_label.pack(pady=10)
-        except Exception as e:
-            print(f"Could not load logo: {e}")
-            
-        # Add a brief description
-        description = ctk.CTkLabel(
-            header_frame,
-            text="Effortlessly explore overviews, trends, insights, reports, and exports to understand how people feel.",
-            font=("Arial", 14),
-            wraplength=700
-        )
-        description.pack(pady=(0, 20))
-        
-    def _create_welcome(self):
-        """Create welcome message with application overview."""
-        welcome_frame = ctk.CTkFrame(self.main_container)
-        welcome_frame.pack(fill="x", padx=10, pady=10)
-        
-        welcome_title = ctk.CTkLabel(
-            welcome_frame,
-            text="Welcome to Sentify",
-            font=("Arial", 24, "bold")
-        )
-        welcome_title.pack(pady=(15, 4), padx=20, anchor="w")
+                img = Image.open(logo_path).resize((96, 96))
+                photo = ImageTk.PhotoImage(img)
+                logo = ctk.CTkLabel(header, image=photo, text="")
+                logo.image = photo
+                logo.pack(pady=(0, 10))
+        except Exception:
+            pass
 
-        welcome_subtitle = ctk.CTkLabel(
-            welcome_frame,
-            text="Your command center for sentiment intelligence across every workflow.",
-            font=("Arial", 15),
-            text_color="#0078D7"
-        )
-        welcome_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
+        # Call‑to‑action
+        cta = ctk.CTkButton(header, text="Open Analyze", width=220,
+                            command=lambda: self._navigate_to_page("Page1"))
+        cta.pack(pady=(4, 12))
 
-        welcome_text = (
-            "Sentify brings together real-time monitoring, granular insights, and polished reporting so your team "
-            "can respond with confidence. Navigate through the sections below to review a quick overview, discover "
-            "trends as they develop, unlock deeper insights, compile polished reports, and manage exports that keep "
-            "stakeholders informed."
+    # -------------------- Feature highlights --------------------
+    def _create_feature_highlights(self):
+        block = ctk.CTkFrame(self.main_container)
+        block.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(block, text="Highlights", font=("Arial", 20, "bold")).pack(
+            pady=(12, 6), padx=12, anchor="w"
         )
 
-        welcome_message = ctk.CTkLabel(
-            welcome_frame,
-            text=welcome_text,
-            font=("Arial", 14),
-            wraplength=850,
-            justify="left"
-        )
-        welcome_message.pack(pady=(0, 18), padx=20)
-        
-    def _create_features(self):
-        """Create feature highlights section."""
-        features_frame = ctk.CTkFrame(self.main_container)
-        features_frame.pack(fill="x", padx=10, pady=10)
+        grid = ctk.CTkFrame(block, fg_color="transparent")
+        grid.pack(fill="x", padx=12, pady=(0, 4))
 
-        features_title = ctk.CTkLabel(
-            features_frame,
-            text="Discover What's Possible",
-            font=("Arial", 24, "bold")
-        )
-        features_title.pack(pady=(15, 4), padx=20, anchor="w")
+        self._feature_card(grid, "Single Text Analysis",
+                           "Analyze any text and visualize Positive/Neutral/Negative.", "Page1").pack(side="left", expand=True, fill="x", padx=6, pady=6)
+        self._feature_card(grid, "Real‑time Monitoring",
+                           "Track hashtags or topics and see trends.", "Page2").pack(side="left", expand=True, fill="x", padx=6, pady=6)
+        self._feature_card(grid, "Clipboard Analyzer",
+                           "Copy text anywhere, analyze with a hotkey.", "Page3").pack(side="left", expand=True, fill="x", padx=6, pady=6)
 
-        features_subtitle = ctk.CTkLabel(
-            features_frame,
-            text="Each workspace is tailored to help you move from raw feedback to actionable intelligence.",
-            font=("Arial", 14)
-        )
-        features_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
-
-        features_grid = ctk.CTkFrame(features_frame, fg_color="transparent")
-        features_grid.pack(fill="x", padx=20, pady=(0, 15))
-
-        feature_definitions = [
-            {
-                "title": "Overview",
-                "description": "Summarize recent sentiment at a glance and monitor highlights the moment you log in.",
-                "page": "Page1",
-                "cta": "Open Overview"
-            },
-            {
-                "title": "Trends",
-                "description": "Visualize evolving conversations, spikes in activity, and shifts in audience emotion.",
-                "page": "Page2",
-                "cta": "View Trends"
-            },
-            {
-                "title": "Insights",
-                "description": "Dive deeper into topics, keywords, and drivers influencing positive or negative reactions.",
-                "page": "Page3",
-                "cta": "Explore Insights"
-            },
-            {
-                "title": "Reports",
-                "description": "Build curated summaries with charts ready to share across your organization.",
-                "page": "Page4",
-                "cta": "Build Reports"
-            },
-            {
-                "title": "Exports",
-                "description": "Download datasets, tables, and visuals to integrate with your existing workflows.",
-                "page": "Page5",
-                "cta": "Manage Exports"
-            }
-        ]
-
-        for index, feature in enumerate(feature_definitions):
-            row, column = divmod(index, 3)
-            card = self._create_feature_card(
-                features_grid,
-                feature["title"],
-                feature["description"],
-                feature.get("page"),
-                feature.get("cta")
-            )
-            card.grid(row=row, column=column, padx=10, pady=10, sticky="nsew")
-
-        for column in range(3):
-            features_grid.grid_columnconfigure(column, weight=1)
-
-    def _create_feature_card(self, parent, title, description, page_name=None, cta_label=None):
-        """Create a feature card with title, description and optional navigation button."""
-        card = ctk.CTkFrame(parent, corner_radius=12)
-
-        card_title = ctk.CTkLabel(
-            card,
-            text=title,
-            font=("Arial", 18, "bold")
-        )
-        card_title.pack(pady=(18, 6), padx=18, anchor="w")
-
-        card_desc = ctk.CTkLabel(
-            card,
-            text=description,
-            font=("Arial", 13),
-            wraplength=320,
-            justify="left"
-        )
-        card_desc.pack(pady=(0, 18), padx=18, anchor="w")
-
-        if page_name:
-            button_text = cta_label or f"Open {title}"
-            card_button = ctk.CTkButton(
-                card,
-                text=button_text,
-                command=lambda p=page_name: self._navigate_to_page(p),
-                height=38,
-                corner_radius=10,
-                font=("Arial", 13, "bold"),
-                fg_color="#1F6AA5",
-                hover_color="#155a8a"
-            )
-            card_button.pack(pady=(0, 18), padx=18, anchor="e")
-
-        return card
-    
-    def _navigate_to_page(self, page_name):
-        """Navigate to the specified page in the application."""
-        # This function will be connected to the main app's navigation
-        # You'll need to implement this in your main.py
+    def _feature_card(self, parent, title, desc, page=None):
+        card = ctk.CTkFrame(parent)
         try:
-            # Access the parent window
+            card.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+        # Accent bar
+        bar = ctk.CTkFrame(card, width=6, height=80)
+        bar.pack(side="left", fill="y")
+        try:
+            bar.configure(fg_color="#3B82F6")
+        except Exception:
+            pass
+        body = ctk.CTkFrame(card, fg_color="transparent")
+        body.pack(side="left", fill="both", expand=True, padx=10, pady=8)
+        ctk.CTkLabel(body, text=title, font=("Arial", 16, "bold")).pack(anchor="w")
+        ctk.CTkLabel(body, text=desc, font=("Arial", 13), wraplength=360, justify="left",
+                     text_color=theme.subtle_text_color()).pack(anchor="w", pady=(2, 6))
+        if page:
+            ctk.CTkButton(body, text="Open", width=100, command=lambda: self._navigate_to_page(page)).pack(anchor="e")
+        return card
+
+    # -------------------- Live stats --------------------
+    def _create_live_stats(self):
+        block = ctk.CTkFrame(self.main_container)
+        block.pack(fill="x", padx=10, pady=(0, 10))
+        try:
+            block.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+
+        ctk.CTkLabel(block, text="Live Stats", font=("Arial", 20, "bold")).pack(
+            pady=(12, 6), padx=12, anchor="w"
+        )
+
+        # Metric cards
+        metrics = ctk.CTkFrame(block, fg_color="transparent")
+        metrics.pack(fill="x", padx=12, pady=(0, 8))
+
+        total_models = self._count_available_models()
+        analyses_today = int(self.config.get("analyses_today", 0) or 0)
+
+        self._metric_card(metrics, "Models Available", str(total_models), "#3B82F6").pack(side="left", expand=True, fill="x", padx=6, pady=6)
+        self._metric_card(metrics, "Analyses Today", str(analyses_today), "#10B981").pack(side="left", expand=True, fill="x", padx=6, pady=6)
+
+        # Model + system grid
+        grid = ctk.CTkFrame(block, fg_color="transparent")
+        grid.pack(fill="x", padx=12, pady=(4, 10))
+        try:
+            grid.grid_columnconfigure(0, weight=1)
+            grid.grid_columnconfigure(1, weight=2)
+        except Exception:
+            pass
+
+        source = (self.config.get("model_source", "huggingface") or "").lower()
+        model_value = self.config.get("model", "") if source == "huggingface" else self.config.get("local_model_path", "")
+        local_type = self.config.get("local_model_type", "transformer") if source == "local" else ""
+
+        analyzer = SentimentAnalyzer()
+        active = analyzer.is_initialized()
+        status_text = "Active" if active else "Inactive"
+
+        self._kv_row(grid, 0, "Model Source", source.capitalize())
+        self._kv_row(grid, 1, "Current Model", model_value or "—")
+        if source == "local":
+            self._kv_row(grid, 2, "Local Type", local_type)
+        self._kv_row(grid, 3, "Status", status_text)
+        self._kv_row(grid, 4, "Python", platform.python_version())
+        self._kv_row(grid, 5, "System", platform.system())
+        self._kv_row(grid, 6, "Time", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+        ctk.CTkButton(grid, text="Change Model", width=140, command=lambda: self._navigate_to_page("Settings")).grid(row=0, column=1, sticky="e", padx=6, pady=6)
+
+    # -------------------- Navigation grid --------------------
+    def _create_navigation_grid(self):
+        block = ctk.CTkFrame(self.main_container)
+        block.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(block, text="Explore", font=("Arial", 20, "bold")).pack(
+            pady=(12, 6), padx=12, anchor="w"
+        )
+
+        grid = ctk.CTkFrame(block)
+        grid.pack(fill="x", padx=12, pady=(0, 8))
+        try:
+            for col in range(3):
+                grid.grid_columnconfigure(col, weight=1, uniform="nav")
+        except Exception:
+            pass
+
+        items = [
+            ("Page1", "Analyze Text"),
+            ("Page2", "Real‑time"),
+            ("Page3", "Clipboard"),
+            ("Page4", "Experiments"),
+            ("Page5", "Evaluation"),
+        ]
+        # Add Settings if present
+        try:
             main_app = self.winfo_toplevel()
-            
-            # If the main app has a show_page method, use it
-            if hasattr(main_app, 'show_page'):
-                main_app.show_page(page_name)
-                
-            # Alternative approach for more complex app structures
-            elif hasattr(main_app, 'pages') and page_name in main_app.pages:
-                for page in main_app.pages.values():
-                    page.grid_remove()
-                main_app.pages[page_name].grid(row=0, column=0, sticky="nsew")
+            if hasattr(main_app, 'pages') and 'Settings' in getattr(main_app, 'pages', {}):
+                items.append(("Settings", "Settings"))
+        except Exception:
+            items.append(("Settings", "Settings"))
+
+        for idx, (page, label) in enumerate(items):
+            r, c = divmod(idx, 3)
+            cell = ctk.CTkFrame(grid)
+            cell.grid(row=r, column=c, padx=6, pady=6, sticky="nsew")
+            try:
+                cell.configure(border_width=1, border_color=theme.border_color())
+            except Exception:
+                pass
+            display_label = {
+                "Analyze Text": "Overview",
+                "Real�?`time": "Trends",
+                "Clipboard": "Insights",
+                "Experiments": "Reports",
+                "Evaluation": "Exports",
+                "Settings": "Settings",
+            }.get(label, label)
+            # Harmonize labels with actual page purposes (robust to mojibake)
+            try:
+                raw = (label or "")
+                if "Analyze" in raw:
+                    label = "Analyze"
+                elif ("Real" in raw) or ("time" in raw):
+                    label = "Trends"
+                elif "Clipboard" in raw:
+                    label = "Clipboard"
+                elif "Experiments" in raw:
+                    label = "Multilingual"
+                elif "Evaluation" in raw:
+                    label = "Training"
+                else:
+                    label = raw
+            except Exception:
+                pass
+            ctk.CTkLabel(cell, text=label, font=("Arial", 14, "bold")).pack(pady=(10, 4))
+            ctk.CTkButton(
+                cell,
+                text="Open",
+                height=36,
+                corner_radius=10,
+                command=lambda p=page: self._navigate_to_page(p),
+            ).pack(pady=(0, 10))
+
+    # -------------------- Quick Start --------------------
+    def _create_quick_start(self):
+        block = ctk.CTkFrame(self.main_container)
+        block.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(block, text="Getting Started", font=("Arial", 20, "bold")).pack(
+            pady=(12, 6), padx=12, anchor="w"
+        )
+
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Visit Overview to analyze a sample sentence",
+            "Check the sentiment distribution and details",
+            "Review Reports for summaries",
+            "Try Real‑time Monitoring with a hashtag",
+            "Optional: Fine‑tune on your dataset",
+        ]
+        # Align steps with the updated navigation
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Go to Analyze to test a sample sentence",
+            "Use Trends to monitor a hashtag or topic",
+            "Train and evaluate models in Training",
+            "Optional: Use Clipboard or Multilingual features",
+        ]
+        for i, step in enumerate(steps, 1):
+            ctk.CTkLabel(block, text=f"{i}. {step}", font=("Arial", 13)).pack(padx=12, pady=2, anchor="w")
+
+    # -------------------- Testimonials --------------------
+    def _create_testimonials(self):
+        block = ctk.CTkFrame(self.main_container)
+        block.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(block, text="What People Say", font=("Arial", 20, "bold")).pack(
+            pady=(12, 6), padx=12, anchor="w"
+        )
+
+        body = ctk.CTkFrame(block)
+        body.pack(fill="x", padx=12, pady=6)
+        try:
+            body.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+
+        self.testimonial_label = ctk.CTkLabel(body, text=self._testimonials[self._testimonial_idx],
+                                              font=("Arial", 14), wraplength=820, justify="left")
+        self.testimonial_label.pack(padx=12, pady=10)
+
+        controls = ctk.CTkFrame(body, fg_color="transparent")
+        controls.pack(pady=(0, 10))
+        ctk.CTkButton(controls, text="◀", width=40, command=self._prev_testimonial).pack(side="left", padx=4)
+        self._dots_label = ctk.CTkLabel(controls, text=self._testimonial_dots(), font=("Arial", 12))
+        self._dots_label.pack(side="left", padx=6)
+        ctk.CTkButton(controls, text="▶", width=40, command=self._next_testimonial).pack(side="left", padx=4)
+
+    def _prev_testimonial(self):
+        self._testimonial_idx = (self._testimonial_idx - 1) % len(self._testimonials)
+        self._refresh_testimonial()
+
+    def _next_testimonial(self):
+        self._testimonial_idx = (self._testimonial_idx + 1) % len(self._testimonials)
+        self._refresh_testimonial()
+
+    def _refresh_testimonial(self):
+        try:
+            self.testimonial_label.configure(text=self._testimonials[self._testimonial_idx])
+            self._dots_label.configure(text=self._testimonial_dots())
+        except Exception:
+            pass
+
+    def _testimonial_dots(self):
+        dots = []
+        for i in range(len(self._testimonials)):
+            dots.append("●" if i == self._testimonial_idx else "○")
+        return " ".join(dots)
+
+    # -------------------- Footer --------------------
+    def _create_footer(self):
+        footer = ctk.CTkFrame(self.main_container)
+        footer.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(footer, text="Links", font=("Arial", 18, "bold")).pack(pady=(12, 6), padx=12, anchor="w")
+
+        row = ctk.CTkFrame(footer, fg_color="transparent")
+        row.pack(fill="x", padx=12, pady=(0, 10))
+
+        ctk.CTkButton(row, text="Documentation", width=160,
+                      command=lambda: self._open_browser("https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment")).pack(side="left", padx=6, pady=6)
+        ctk.CTkButton(row, text="GitHub", width=160,
+                      command=lambda: self._open_browser("https://github.com/xMaroArrow/Sentify-App")).pack(side="left", padx=6, pady=6)
+        ctk.CTkButton(row, text="Feedback", width=160,
+                      command=lambda: self._open_browser("mailto:SentifyApp@gmail.com")).pack(side="left", padx=6, pady=6)
+        ctk.CTkButton(row, text="Release Notes", width=160,
+                      command=lambda: self._open_browser("https://github.com/xMaroArrow/Sentify-App/releases")).pack(side="left", padx=6, pady=6)
+
+        credits = ctk.CTkLabel(
+            footer,
+            text="© 2025 Sentify — Master's Thesis, University of Bahrain",
+            font=("Arial", 12),
+            text_color=theme.subtle_text_color(),
+        )
+        credits.pack(pady=(2, 8))
+
+    # -------------------- Helpers --------------------
+    def _navigate_to_page(self, page_name):
+        try:
+            app = self.winfo_toplevel()
+            if hasattr(app, 'show_page'):
+                app.show_page(page_name)
+            elif hasattr(app, 'pages') and page_name in app.pages:
+                for p in app.pages.values():
+                    p.grid_remove()
+                app.pages[page_name].grid(row=0, column=0, sticky="nsew")
         except Exception as e:
             print(f"Navigation error: {e}")
-    
-    def _create_navigation(self):
-        """Create quick navigation section with buttons for all pages."""
-        nav_frame = ctk.CTkFrame(self.main_container)
-        nav_frame.pack(fill="x", padx=10, pady=10)
-
-        nav_title = ctk.CTkLabel(
-            nav_frame,
-            text="Navigate the Workspace",
-            font=("Arial", 24, "bold")
-        )
-        nav_title.pack(pady=(15, 4), padx=20, anchor="w")
-
-        nav_subtitle = ctk.CTkLabel(
-            nav_frame,
-            text="Jump directly into the area you need with streamlined, consistent controls.",
-            font=("Arial", 14)
-        )
-        nav_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
-
-        buttons_frame = ctk.CTkFrame(nav_frame, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
-
-        buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        nav_items = [
-            ("Overview", "Page1"),
-            ("Trends", "Page2"),
-            ("Insights", "Page3"),
-            ("Reports", "Page4"),
-            ("Exports", "Page5")
-        ]
-
-        if hasattr(self, 'settings_page_exists') and self.settings_page_exists:
-            nav_items.append(("Settings", "Settings"))
-
-        button_style = {
-            "height": 48,
-            "corner_radius": 12,
-            "font": ("Arial", 15, "bold"),
-            "fg_color": "#1F6AA5",
-            "hover_color": "#155a8a"
-        }
-
-        for index, (label, page) in enumerate(nav_items):
-            row, column = divmod(index, 3)
-            button = ctk.CTkButton(
-                buttons_frame,
-                text=label,
-                command=lambda p=page: self._navigate_to_page(p),
-                **button_style
-            )
-            button.grid(row=row, column=column, padx=10, pady=10, sticky="ew")
-    
-    def _create_system_info(self):
-        """Create system information section."""
-        sysinfo_frame = ctk.CTkFrame(self.main_container)
-        sysinfo_frame.pack(fill="x", padx=10, pady=10)
-        
-        sysinfo_title = ctk.CTkLabel(
-            sysinfo_frame,
-            text="System Information",
-            font=("Arial", 18, "bold")
-        )
-        sysinfo_title.pack(pady=(15, 10), padx=15, anchor="w")
-        
-        # Get system information
-        system = platform.system()
-        python_version = platform.python_version()
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Display system information
-        info_text = f"""
-• Application: Sentify - Sentiment Analysis Platform
-• System: {system}
-• Python: {python_version}
-• Current Time: {current_time}
-• Model: cardiffnlp/twitter-roberta-base-sentiment
-        """
-        
-        sysinfo_label = ctk.CTkLabel(
-            sysinfo_frame,
-            text=info_text,
-            font=("Arial", 13),
-            justify="left"
-        )
-        sysinfo_label.pack(pady=(0, 15), padx=15, anchor="w")
-    
-    def _create_footer(self):
-        """Create footer with credits and links."""
-        footer_frame = ctk.CTkFrame(self.main_container)
-        footer_frame.pack(fill="x", padx=10, pady=10)
-        
-        # Credits
-        credits_text = "© 2025 Sentify - Developed as part of Master's Thesis at University of Bahrain"
-        credits_label = ctk.CTkLabel(
-            footer_frame,
-            text=credits_text,
-            font=("Arial", 12)
-        )
-        credits_label.pack(pady=(15, 5), padx=15)
-        
-        # Links frame
-        links_frame = ctk.CTkFrame(footer_frame, fg_color="transparent")
-        links_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        # Documentation link
-        docs_button = ctk.CTkButton(
-            links_frame,
-            text="Documentation",
-            command=lambda: self._open_browser("https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment"),
-            width=150,
-            height=30,
-            font=("Arial", 12)
-        )
-        docs_button.pack(side="left", padx=10, pady=10)
-        
-        # GitHub link
-        github_button = ctk.CTkButton(
-            links_frame,
-            text="View on GitHub",
-            command=lambda: self._open_browser("https://github.com/xMaroArrow/Sentify-App"),
-            width=150,
-            height=30,
-            font=("Arial", 12)
-        )
-        github_button.pack(side="left", padx=10, pady=10)
-        
-        # Feedback link
-        feedback_button = ctk.CTkButton(
-            links_frame,
-            text="Provide Feedback",
-            command=lambda: self._open_browser("mailto:SentifyApp@gmail.com"),
-            width=150,
-            height=30,
-            font=("Arial", 12)
-        )
-        feedback_button.pack(side="left", padx=10, pady=10)
-    
     def _open_browser(self, url):
-        """Open the specified URL in the default web browser."""
         try:
             webbrowser.open(url)
         except Exception as e:
             print(f"Error opening URL: {e}")
 
+    # helpers: metrics/grid
+    def _metric_card(self, parent, title, value, color="#3B82F6"):
+        card = ctk.CTkFrame(parent)
+        try:
+            card.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+        top = ctk.CTkFrame(card, fg_color=color, height=6)
+        top.pack(fill="x")
+        ctk.CTkLabel(card, text=title, font=("Arial", 12), text_color=theme.subtle_text_color()).pack(padx=10, pady=(8, 0), anchor="w")
+        ctk.CTkLabel(card, text=value, font=("Arial", 20, "bold")).pack(padx=10, pady=(0, 8), anchor="w")
+        return card
+
+    def _kv_row(self, parent, r, key, value):
+        ctk.CTkLabel(parent, text=key, font=("Arial", 12), text_color=theme.subtle_text_color()).grid(row=r, column=0, sticky="w", padx=6, pady=4)
+        ctk.CTkLabel(parent, text=value, font=("Arial", 13)).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+
+    def _count_available_models(self) -> int:
+        base = self._models_base_dir()
+        seen = set()
+        if os.path.isdir(base):
+            for root, dirs, files in os.walk(base):
+                rel = os.path.relpath(root, base)
+                rel_parts = [] if rel == '.' else rel.split(os.sep)
+                if rel_parts and rel_parts[0].lower() == 'archive':
+                    continue
+                if 'config.json' in files or ('model.pt' in files and 'config.json' not in files):
+                    seen.add(os.path.normpath(root))
+        return len(seen)
+
+    def _models_base_dir(self) -> str:
+        try:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            return os.path.join(root, 'models')
+        except Exception:
+            return os.path.abspath('models')

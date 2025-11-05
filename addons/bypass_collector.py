@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Optional
 import urllib.parse as ul
 import requests
+import re
 from bs4 import BeautifulSoup
 
 # ---- Pool of known‑good Nitter mirrors (add/remove as needed) --------
@@ -137,8 +138,73 @@ class TweetCollector:
                 created = art.select_one("span.tweet-date > a")
                 created_at = created["title"] if created else datetime.utcnow().isoformat()
                 text = " ".join(t.strip() for t in art.select_one("div.tweet-content").stripped_strings)
+                text = re.sub(r"https?://\S+", "", text).strip()
 
                 new_rows.append([created_at, username, text, tw_id])
             except Exception:
                 continue  # skip malformed block
         return new_rows
+
+    # ------------------------------------------------------------------
+    # Streaming (manual cadence) API for UI
+    # ------------------------------------------------------------------
+    def start_streaming(self, callback, query: str, batch_size: int = 5, interval_seconds: int = 60):
+        """
+        Periodically scrape up to `batch_size` tweets matching `query` every
+        `interval_seconds` and invoke `callback(texts, timestamps)`.
+
+        Also appends fetched tweets to this instance's CSV for continuity.
+        """
+        self.stop_event.clear()
+        self._ids_seen.clear()
+        self.cooldown = max(1, int(interval_seconds))
+        self._stream_batch_size = max(1, int(batch_size))
+        self.keyword = query
+        self.thread = threading.Thread(target=self._stream_loop, args=(callback,), daemon=True)
+        self.thread.start()
+
+    def _stream_loop(self, callback):
+        while not self.stop_event.is_set():
+            try:
+                texts, times, rows = self._stream_collect_once(self._stream_batch_size)
+                if rows:
+                    try:
+                        with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
+                            csv.writer(f).writerows(rows)
+                    except Exception:
+                        pass
+                if texts:
+                    try:
+                        callback(texts, times)
+                    except Exception:
+                        pass
+            except Exception as exc:
+                print(f"[NitterCollector] Streaming error: {exc}")
+            self._next_request_time = time.time() + self.cooldown
+            time.sleep(self.cooldown)
+
+    def _stream_collect_once(self, batch_size: int):
+        texts, times, rows = [], [], []
+        for base in random.sample(NITTER_INSTANCES, len(NITTER_INSTANCES)):
+            url = self._build_search_url(base)
+            try:
+                resp = requests.get(url, headers=HEADERS, timeout=15)
+                if resp.status_code != 200:
+                    continue
+                data = self._parse_html(resp.text)
+                if not data:
+                    continue
+                for created_at, username, text, tw_id in data:
+                    if tw_id in self._ids_seen:
+                        continue
+                    self._ids_seen.add(tw_id)
+                    txt = (text or "").replace("\n", " ")
+                    txt = re.sub(r"https?://\S+", "", txt).strip()
+                    texts.append(txt)
+                    times.append(created_at)
+                    rows.append([created_at, username, txt, tw_id])
+                    if len(texts) >= batch_size:
+                        return texts, times, rows
+            except Exception:
+                continue
+        return texts, times, rows

@@ -2,7 +2,10 @@
   "confidence_threshold": 70,
   "remove_urls": true,
   "remove_mentions": true,
+  "model_source": "local",
   "model": "cardiffnlp/twitter-roberta-base-sentiment",
+  "local_model_path": "D:\\xMaro\\University Of Bahrain\\AI Systems Master\\Thesis\\Sentify-App\\models\\model_NEWLSTM",
+  "local_model_type": "pytorch",
   "reddit_client_id": "y_V7rsC7los0whtY1O2g0g",
   "reddit_client_secret": "HkmoIrvPiN9FmFCyh9-1dKqkQYd5OA",
   "reddit_user_agent": "Sentify-App:1.0 (by u/xMaroMask)"

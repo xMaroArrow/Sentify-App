@@ -25,6 +25,12 @@ except ImportError:
     except ImportError:
         TweetCollector = None  # Offline mode only
 
+# Optional Reddit collector
+try:
+    from addons.reddit_collector import RedditCollector
+except Exception:
+    RedditCollector = None  # Reddit streaming unavailable
+
 class Page2(ctk.CTkFrame):
     """
     Opinion‑polling page with live or offline (CSV) mode.
@@ -109,12 +115,34 @@ class Page2(ctk.CTkFrame):
         input_frame.pack(fill="x", padx=20, pady=10)
         
         # Rest of your UI components - update their parent to self.master_scroll
+        # Source selector
+        self.source_var = ctk.StringVar(value="Twitter")
+        ctk.CTkLabel(input_frame, text="Source:").pack(side="left", padx=(0, 4))
+        self.source_menu = ctk.CTkOptionMenu(
+            input_frame,
+            values=["Twitter", "Reddit"],
+            variable=self.source_var,
+            width=110,
+        )
+        self.source_menu.pack(side="left", padx=(0, 10))
+
         self.entry = ctk.CTkEntry(
             input_frame, 
-            placeholder_text="#Hashtag or search term", 
+            placeholder_text="#Hashtag / search / Reddit URL", 
             width=300
         )
         self.entry.pack(side="left", padx=(0, 10))
+
+        # Batch size and interval controls
+        ctk.CTkLabel(input_frame, text="Batch:").pack(side="left", padx=(0, 4))
+        self.batch_entry = ctk.CTkEntry(input_frame, width=50)
+        self.batch_entry.insert(0, "5")
+        self.batch_entry.pack(side="left", padx=(0, 10))
+
+        ctk.CTkLabel(input_frame, text="Every (min):").pack(side="left", padx=(0, 4))
+        self.interval_entry = ctk.CTkEntry(input_frame, width=60)
+        self.interval_entry.insert(0, "1")
+        self.interval_entry.pack(side="left", padx=(0, 10))
         
         self.status = ctk.CTkLabel(
             input_frame, 
@@ -164,21 +192,18 @@ class Page2(ctk.CTkFrame):
         self.progress.pack(pady=(10, 0))
         self.progress.set(0)
 
-        # Visualization container - use grid for better control
+        # Visualization container - fill available space
         self.viz_frame = ctk.CTkFrame(self.master_scroll)
         self.viz_frame.pack(expand=True, fill="both", padx=20, pady=(10, 0))
 
-        # Chart container - allow flexible sizing
+        # Chart container - responsive grid (side-by-side or stacked)
         self.fig_frame = ctk.CTkFrame(self.viz_frame)
-        self.fig_frame.pack(pady=5, fill="x")
+        self.fig_frame.pack(pady=5, fill="both", expand=True)
         try:
-            # Two equal columns for side-by-side charts
             self.fig_frame.grid_columnconfigure(0, weight=1, uniform="figs")
             self.fig_frame.grid_columnconfigure(1, weight=1, uniform="figs")
-            # Keep row from stretching vertically; we control size to stay square
-            self.fig_frame.grid_rowconfigure(0, weight=0)
-            # Enforce square canvases when resized
-            self.fig_frame.bind("<Configure>", self._on_fig_frame_resize)
+            self.fig_frame.grid_rowconfigure(0, weight=1)
+            self.fig_frame.grid_rowconfigure(1, weight=1)
         except Exception:
             pass
         try:
@@ -186,6 +211,19 @@ class Page2(ctk.CTkFrame):
             self.fig_frame.configure(border_width=1, border_color=theme.border_color())
         except Exception:
             pass
+
+        # Dedicated containers for each chart for better layout control
+        self.pie_container = ctk.CTkFrame(self.fig_frame, fg_color=theme.panel_bg())
+        self.trend_container = ctk.CTkFrame(self.fig_frame, fg_color=theme.panel_bg())
+        try:
+            self.pie_container.configure(border_width=1, border_color=theme.border_color())
+            self.trend_container.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
+
+        # Track layout mode and arrange on resize
+        self._charts_stacked = None  # unknown initially
+        self.fig_frame.bind("<Configure>", self._arrange_chart_grid)
         
         # Sample tweets container
         self.samples_frame = ctk.CTkFrame(self.viz_frame)
@@ -205,20 +243,18 @@ class Page2(ctk.CTkFrame):
         stats_label.pack(pady=(5, 0))
         
         self.stats_text = ctk.CTkLabel(
-            self.stats_frame, 
-            text="No data available", 
+            self.stats_frame,
+            text="No data available",
             font=("Arial", 12),
-            text_color="#aaaaaa"
+            text_color="#aaaaaa",
+            justify="left",
+            anchor="w",
+            wraplength=1000,
         )
         self.stats_text.pack(pady=(0, 5))
         
         # Initialize empty visualizations
-        self.update_pie_chart()
-        self.update_trend_chart()
-        
-        # At the end of __init__
         try:
-            # Initialize empty visualizations
             self.update_pie_chart()
             self.update_trend_chart()
         except Exception as e:
@@ -284,83 +320,77 @@ Requirements:
         ).pack(pady=10)
 
     # ------------------------------------------------------------------
-    # Live monitoring
+    # Live monitoring (streaming)
     # ------------------------------------------------------------------
+    def _set_controls_state(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        for w in [self.entry, self.source_menu, self.batch_entry, self.interval_entry, self.load_csv_button, self.export_button, self.start_button]:
+            try:
+                w.configure(state=state)
+            except Exception:
+                pass
+
     def start_monitoring(self):
-        """Start real-time monitoring of tweets for a hashtag."""
-        if TweetCollector is None:
-            self.status.configure(text="Collector unavailable", text_color="red")
+        """Start real-time monitoring for Twitter or Reddit with manual cadence."""
+        source = (getattr(self, 'source_var', None).get() if hasattr(self, 'source_var') else 'Twitter')
+        query = self.entry.get().strip()
+        if not query:
+            self.status.configure(text="Enter a hashtag or query", text_color="red")
             return
 
-        hashtag = self.entry.get().strip()
-        if not hashtag:
-            self.status.configure(text="Enter a hashtag first!", text_color="red")
+        try:
+            batch_size = int((self.batch_entry.get() or "").strip() or 0)
+            interval_min = float((self.interval_entry.get() or "").strip() or 0)
+        except Exception:
+            self.status.configure(text="Batch/interval must be numeric", text_color="red")
             return
+        if batch_size <= 0 or interval_min <= 0:
+            self.status.configure(text="Batch/interval must be > 0", text_color="red")
+            return
+        interval_seconds = max(1, int(interval_min * 60))
 
         # Stop any existing monitoring
         self.stop_monitoring()
 
-        # Start collection process
-        try:
-            # Update UI
-            self.start_button.configure(state="disabled")
-            self.status.configure(text="Initializing...", text_color="orange")
-            self.progress.set(0.1)
-            
-            # Initialize collector in background thread to keep UI responsive
-            threading.Thread(target=self._initialize_collection, args=(hashtag,), daemon=True).start()
-        except Exception as e:
-            self.status.configure(text=f"Error: {str(e)}", text_color="red")
-            self.start_button.configure(state="normal")
-            self.progress.set(0)
+        # Reset in-memory data
+        self.sentiment_counts = {"Positive": [], "Neutral": [], "Negative": []}
+        self.time_stamps = []
+        self.sample_tweets = {"Positive": [], "Neutral": [], "Negative": []}
+        self.progress.set(0.1)
+        self.status.configure(text="Initializing...", text_color="orange")
+        self._set_controls_state(False)
 
-    def _initialize_collection(self, hashtag):
-        """Initialize collection in background thread."""
-        try:
-            # Create collector
-            self.collector = TweetCollector(hashtag, cooldown=60)
-            self.after(0, lambda: self.status.configure(text="Starting collector...", text_color="orange"))
-            self.after(0, lambda: self.progress.set(0.3))
-            
-            # Start collector
-            self.collector.start()
-            self.after(0, lambda: self.progress.set(0.6))
-            
-            # Store path for export functionality
-            self.current_csv_path = self.collector.csv_path
-            
-            # Reset data storage
-            self.sentiment_counts = {"Positive": [], "Neutral": [], "Negative": []}
-            self.time_stamps = []
-            self.sample_tweets = {"Positive": [], "Neutral": [], "Negative": []}
-            
-            # Create analyzer with direct callback to this instance
-            from addons.analyzer import SentimentAnalyzer as FileAnalyzer
-            analyzer = FileAnalyzer(
-                self.collector.csv_path,
-                update_callback=self.on_new_analysis,
-                reload_every=30,
-            )
-            analyzer.start()
-            
-            # Update UI on main thread
-            self.after(0, lambda: self.progress.set(1.0))
-            self.after(0, lambda: self.status.configure(text="Collecting...", text_color="orange"))
-            self.after(0, lambda: self.export_button.configure(state="normal"))
-            self.after(0, lambda: self.start_button.configure(state="normal"))
-            
-            # Start countdown
-            self.running = True
-            self.after(0, self._schedule_countdown)
-            
-            # Reset progress after delay
-            self.after(2000, lambda: self.progress.set(0))
-            
-        except Exception as e:
-            self.after(0, lambda: self.status.configure(text=f"Error: {str(e)}", text_color="red"))
-            self.after(0, lambda: self.start_button.configure(state="normal"))
-            self.after(0, lambda: self.progress.set(0))
-            self.collector = None
+        def _init_and_start():
+            try:
+                if str(source).lower() == "reddit":
+                    if RedditCollector is None:
+                        raise RuntimeError("Reddit not configured (install praw / set credentials)")
+                    self.collector = RedditCollector(cooldown=interval_seconds)
+                    self.current_csv_path = None
+                    self.collector.start_streaming(self._on_stream_batch, query, batch_size, interval_seconds)
+                else:
+                    if TweetCollector is None:
+                        raise RuntimeError("Twitter collector unavailable")
+                    self.collector = TweetCollector(query, cooldown=interval_seconds)
+                    self.current_csv_path = getattr(self.collector, 'csv_path', None)
+                    # Use the pluggable streaming API we added
+                    try:
+                        self.collector.start_streaming(self._on_stream_batch, query, batch_size, interval_seconds)
+                    except Exception:
+                        # Fallback: start legacy collector (won't provide streaming batches)
+                        self.collector.start()
+
+                self.running = True
+                self.after(0, lambda: self.status.configure(text="Collecting...", text_color="orange"))
+                self.after(0, lambda: self.progress.set(0.2))
+                self.after(0, self._schedule_countdown)
+            except Exception as e:
+                self.after(0, lambda: self.status.configure(text=f"Error: {e}", text_color="red"))
+                self.after(0, lambda: self.progress.set(0))
+                self.after(0, lambda: self._set_controls_state(True))
+                self.collector = None
+
+        threading.Thread(target=_init_and_start, daemon=True).start()
 
     def stop_monitoring(self):
         """Stop all monitoring and analysis threads."""
@@ -379,6 +409,10 @@ Requirements:
         # Update UI
         self.status.configure(text="Stopped", text_color="gray")
         self.progress.set(0)
+        try:
+            self._set_controls_state(True)
+        except Exception:
+            pass
 
     def _schedule_countdown(self):
         """Update countdown display for next data collection."""
@@ -386,7 +420,10 @@ Requirements:
             return
             
         # Calculate seconds until next request
-        sec = self.collector.seconds_until_next_request()
+        try:
+            sec = int(self.collector.seconds_until_next_request())
+        except Exception:
+            sec = 0
         
         # Update status with countdown
         if sec > 0:
@@ -398,6 +435,47 @@ Requirements:
             
         # Schedule next update
         self.countdown_job = self.after(1000, self._schedule_countdown)
+
+    # ------------------------------------------------------------------
+    # Streaming callback (live mode)
+    # ------------------------------------------------------------------
+    def _on_stream_batch(self, texts, timestamps):
+        if not self.running or not texts:
+            return
+
+        def _analyze_batch():
+            pos = neu = neg = 0
+            samples_added = {"Positive": 0, "Neutral": 0, "Negative": 0}
+            for text in texts:
+                result = self.sentiment_analyzer.analyze_text(text)
+                label = max(result.items(), key=lambda x: x[1])[0] if result else "Neutral"
+                if label == "Positive":
+                    pos += 1
+                elif label == "Negative":
+                    neg += 1
+                else:
+                    neu += 1
+                if samples_added.get(label, 0) < 3:
+                    truncated = (text[:120] + "…") if len(text) > 120 else text
+                    self.sample_tweets[label].append(truncated)
+                    samples_added[label] = samples_added.get(label, 0) + 1
+
+            ts_label = datetime.now().strftime("%H:%M")
+            self.time_stamps.append(ts_label)
+            self.sentiment_counts["Positive"].append(pos)
+            self.sentiment_counts["Neutral"].append(neu)
+            self.sentiment_counts["Negative"].append(neg)
+
+            # UI updates on main thread
+            self.after(0, self.update_pie_chart)
+            self.after(0, self.update_trend_chart)
+            self.after(0, self._update_stats_enhanced)
+            self.after(0, self._show_samples)
+            self.after(0, lambda: self.status.configure(text="Analyzed batch", text_color="green"))
+
+        # Run analysis off the UI thread
+        self.analysis_thread = threading.Thread(target=_analyze_batch, daemon=True)
+        self.analysis_thread.start()
 
     # ------------------------------------------------------------------
     # Analyzer callback (live mode)
@@ -431,7 +509,7 @@ Requirements:
         # Update visualizations
         self.update_pie_chart()
         self.update_trend_chart()
-        self._update_stats()
+        self._update_stats_enhanced()
         self._show_samples()
         
         # Update status
@@ -563,7 +641,7 @@ Requirements:
             self.after(0, lambda: self.progress.set(0.8))
             self.after(0, self.update_pie_chart)
             self.after(0, self.update_trend_chart)
-            self.after(0, self._update_stats)
+            self.after(0, self._update_stats_enhanced)
             self.after(0, self._show_samples)
             self.after(0, lambda: self.export_button.configure(state="normal"))
             self.after(0, lambda: self.progress.set(1.0))
@@ -666,207 +744,190 @@ Requirements:
     # Visualization helpers (reuse for both modes)
     # ------------------------------------------------------------------
     def update_pie_chart(self):
-        """Create dark‑theme pie chart with inline labels."""
-        if self.canvas:
-            self.canvas.get_tk_widget().destroy()
-
+        """Create or update the pie chart with smooth animated transitions."""
         # Calculate totals
         totals = {k: sum(v) for k, v in self.sentiment_counts.items()}
-        
-        # Create square figure
-        fig, ax = plt.subplots(figsize=(6, 6))
-        bg = theme.plot_bg()
-        txt = theme.text_color()
-        outline = "#000000" if theme.is_light() else "#FFFFFF"
-        fig.patch.set_facecolor(bg)
-        ax.set_facecolor(bg)
-        
-        # Check if we have data
-        if any(totals.values()):
-            # Sort by sentiment for consistent ordering
-            labels, values = zip(*sorted(totals.items()))
-            
-            # Create pie chart with enhanced styling 
-            colors = ["#e91e63", "#ffb300", "#4caf50"]  # Positive, Neutral, Negative
-            wedges, texts, autotexts = ax.pie(
-                values, 
-                labels=labels, 
-                colors=colors,
-                autopct=lambda p: f"{p:.1f}%\n({int(p*sum(values)/100)})" if p > 5 else "",
-                startangle=90, 
-                textprops={"color": txt, "fontweight": "bold"},
-                wedgeprops={"edgecolor": bg, "linewidth": 1}
-            )
-            
-            # Enhanced text styling
-            for autotext in autotexts:
-                autotext.set_fontsize(9)
-        else:
-            # Empty pie chart with message
-            ax.text(
-                0.5, 0.5, 
-                "No data available", 
-                ha="center", 
-                va="center", 
-                color="white",
-                fontsize=12
-            )
-            
-        # Ensure a perfect circle and title
-        ax.axis("equal")
-        ax.set_title("Sentiment Distribution", color="white", fontsize=14, pad=20)
-        
-        # Create canvas and place via grid to avoid stretching
-        self.canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
-        self.canvas.draw()
-        canvas_widget = self.canvas.get_tk_widget()
-        try:
-            canvas_widget.grid(row=0, column=0, padx=10, pady=5)
-        except Exception:
-            canvas_widget.pack(side="left", padx=10)
-        try:
-            self._apply_square_size()
-        except Exception:
-            pass
+        labels = ["Positive", "Neutral", "Negative"]
+        new_vals = [totals.get("Positive", 0), totals.get("Neutral", 0), totals.get("Negative", 0)]
 
-    def update_trend_chart(self):
-        """Create dark‑theme line chart with inline labels at latest points."""
-        # Remove previous chart if it exists
-        if self.trend_canvas:
-            self.trend_canvas.get_tk_widget().destroy()
-            
-        # Skip if no data
-        if not self.time_stamps:
-            # Create empty square figure with message
-            fig, ax = plt.subplots(figsize=(6, 6))
+        # Lazy init figure/canvas once
+        if not getattr(self, "canvas", None):
             bg = theme.plot_bg()
             txt = theme.text_color()
+            fig, ax = plt.subplots(figsize=(6.5, 4.5))
             fig.patch.set_facecolor(bg)
             ax.set_facecolor(bg)
-            
-            ax.text(
-                0.5, 0.5, 
-                "No time-series data available", 
-                ha="center", 
-                va="center", 
-                color="white",
-                fontsize=12
-            )
-            
-            ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=20)
-            
-            # Set up empty axes
-            ax.set_xlabel("Time", color=txt)
-            ax.set_ylabel("Tweet Count", color=txt)
-            ax.tick_params(axis="x", colors=txt)
-            ax.tick_params(axis="y", colors=txt)
-            
-            # Create canvas and place via grid to avoid stretching
-            self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
-            self.trend_canvas.draw()
-            canvas_widget = self.trend_canvas.get_tk_widget()
-            try:
-                canvas_widget.grid(row=0, column=1, padx=10, pady=5)
-            except Exception:
-                canvas_widget.pack(side="right", padx=10)
-            try:
-                self._apply_square_size()
-            except Exception:
-                pass
-            
+            ax.set_title("Sentiment Distribution", color=txt, fontsize=14, pad=12)
+            self.canvas = FigureCanvasTkAgg(fig, master=self.pie_container)
+            self.canvas.draw()
+            w = self.canvas.get_tk_widget()
+            w.pack(fill="both", expand=True, padx=8, pady=8)
+            self.pie_fig = fig
+            self.pie_ax = ax
+            self._pie_prev = [0, 0, 0]
+
+        # If no data at all, show placeholder text
+        if sum(new_vals) == 0:
+            self.pie_ax.clear()
+            bg = theme.plot_bg()
+            txt = theme.text_color()
+            self.pie_fig.patch.set_facecolor(bg)
+            self.pie_ax.set_facecolor(bg)
+            self.pie_ax.text(0.5, 0.5, "No data available", ha="center", va="center", color=txt, fontsize=12)
+            self.pie_ax.axis("equal")
+            self.pie_ax.set_title("Sentiment Distribution", color=txt, fontsize=14, pad=12)
+            self.canvas.draw_idle()
+            self._pie_prev = [0, 0, 0]
+            self._ensure_chart_layout()
             return
 
-        # Create square figure for trend chart
-        fig, ax = plt.subplots(figsize=(6, 6))
+        # Animate from previous to new values
+        start = getattr(self, "_pie_prev", [0, 0, 0])
+        steps = 12
+        colors = ["#4caf50", "#9e9e9e", "#e53935"]
         bg = theme.plot_bg()
         txt = theme.text_color()
-        outline = "#000000" if theme.is_light() else "#FFFFFF"
-        fig.patch.set_facecolor(bg)
-        ax.set_facecolor(bg)
-        
-        # Prepare color scheme and sentiment labels
-        colors = {
-            "Positive": "#4caf50",  # green
-            "Neutral": "#ffb300",   # amber
-            "Negative": "#e91e63"   # pink
-        }
-        
-        # Plot each sentiment series with enhanced styling
-        for sentiment, color in colors.items():
-            series = self.sentiment_counts[sentiment]
-            if not series:
-                continue
-                
-            # Plot line with enhanced styling
-            line, = ax.plot(
-                self.time_stamps,
-                series,
-                marker="o",
-                color=color,
-                linewidth=2,
-                markersize=4,
-                alpha=0.8,
-                label=sentiment
+
+        def frame(i=1):
+            t = i / float(steps)
+            vals = [s + (n - s) * t for s, n in zip(start, new_vals)]
+            self.pie_ax.clear()
+            self.pie_fig.patch.set_facecolor(bg)
+            self.pie_ax.set_facecolor(bg)
+            wedges, _texts, autotexts = self.pie_ax.pie(
+                vals,
+                labels=labels,
+                colors=colors,
+                autopct=lambda p: f"{p:.1f}%" if p >= 4 else "",
+                startangle=90,
+                textprops={"color": txt, "fontweight": "bold"},
+                wedgeprops={"edgecolor": bg, "linewidth": 1},
             )
-            
-            # Add label at last data point if value is non-zero
-            if series[-1] > 0:
-                ax.text(
-                    self.time_stamps[-1], 
-                    series[-1], 
-                    f" {sentiment}: {series[-1]}", 
-                    color=color,
-                    va="center", 
-                    fontsize=8,
-                    fontweight="bold",
-                    path_effects=[
-                        path_effects.withStroke(
-                            linewidth=2, foreground=outline
-                        )
-                    ]
-                )
-        
-        # Enhanced formatting
-        ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=20)
-        ax.set_xlabel("Time", color=txt, fontsize=10)
-        ax.set_ylabel("Tweet Count", color=txt, fontsize=10)
-        
-        # Improve tick formatting
-        ax.tick_params(axis="x", rotation=45, labelcolor=txt, labelsize=8)
-        ax.tick_params(axis="y", labelcolor=txt, labelsize=8)
-        
-        # Show fewer x-axis ticks if many data points
-        if len(self.time_stamps) > 10:
-            step = max(len(self.time_stamps) // 10, 1)
-            ax.set_xticks(self.time_stamps[::step])
-            
-        # Add grid for readability
-        ax.grid(True, linestyle="--", alpha=0.3, color=txt)
-        
-        # Add legend
-        if any(sum(self.sentiment_counts[s]) > 0 for s in colors.keys()):
-            ax.legend(
-                loc="upper left", 
-                facecolor=bg, 
-                edgecolor="#555555",
-                labelcolor=txt,
-                fontsize=8
-            )
-        
-        # Ensure tight layout
-        fig.tight_layout()
-        
-        # Create canvas and place via grid
-        self.trend_canvas = FigureCanvasTkAgg(fig, master=self.fig_frame)
-        self.trend_canvas.draw()
-        try:
-            self.trend_canvas.get_tk_widget().grid(row=0, column=1, padx=10, pady=5)
-        except Exception:
-            self.trend_canvas.get_tk_widget().pack(side="right", padx=10)
-        try:
-            self._apply_square_size()
-        except Exception:
-            pass
+            for at in autotexts:
+                at.set_fontsize(9)
+            self.pie_ax.axis("equal")
+            self.pie_ax.set_title("Sentiment Distribution", color=txt, fontsize=14, pad=12)
+            self.canvas.draw_idle()
+            if i < steps:
+                self.after(16, lambda: frame(i + 1))
+            else:
+                self._pie_prev = new_vals
+                self._ensure_chart_layout()
+
+        frame(1)
+
+    def update_trend_chart(self):
+        """Create or update a responsive line chart with smooth animation."""
+        labels = ["Positive", "Neutral", "Negative"]
+        colors = ["#4caf50", "#9e9e9e", "#e53935"]
+        bg = theme.plot_bg()
+        txt = theme.text_color()
+
+        # Lazy init figure/canvas and line artists
+        if not getattr(self, "trend_canvas", None):
+            fig, ax = plt.subplots(figsize=(6.5, 4.5))
+            fig.patch.set_facecolor(bg)
+            ax.set_facecolor(bg)
+            ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=12)
+            ax.set_xlabel("Time", color=txt, fontsize=10)
+            ax.set_ylabel("Count", color=txt, fontsize=10)
+            ax.grid(True, linestyle="--", alpha=0.25, color=txt)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            self.trend_lines = []
+            for c in colors:
+                line, = ax.plot([], [], color=c, linewidth=2.2)
+                self.trend_lines.append(line)
+            ax.tick_params(axis="x", rotation=45, labelcolor=txt, labelsize=8)
+            ax.tick_params(axis="y", labelcolor=txt, labelsize=8)
+            self.trend_canvas = FigureCanvasTkAgg(fig, master=self.trend_container)
+            self.trend_canvas.draw()
+            self.trend_fig = fig
+            self.trend_ax = ax
+            w = self.trend_canvas.get_tk_widget()
+            w.pack(fill="both", expand=True, padx=8, pady=8)
+            self._trend_prev = [[], [], []]
+
+        # If no data yet, render placeholder
+        if not self.time_stamps:
+            self.trend_ax.clear()
+            self.trend_fig.patch.set_facecolor(bg)
+            self.trend_ax.set_facecolor(bg)
+            self.trend_ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=12)
+            self.trend_ax.set_xlabel("Time", color=txt, fontsize=10)
+            self.trend_ax.set_ylabel("Count", color=txt, fontsize=10)
+            self.trend_ax.text(0.5, 0.5, "No time-series data available", ha="center", va="center", color=txt, fontsize=12)
+            self.trend_ax.grid(True, linestyle="--", alpha=0.25, color=txt)
+            self.trend_ax.tick_params(axis="x", rotation=45, labelcolor=txt, labelsize=8)
+            self.trend_ax.tick_params(axis="y", labelcolor=txt, labelsize=8)
+            self.trend_canvas.draw_idle()
+            self._ensure_chart_layout()
+            return
+
+        # Prepare new data arrays
+        new_series = [self.sentiment_counts[lbl][:] for lbl in labels]
+        prev_series = getattr(self, "_trend_prev", [[], [], []])
+        # Pad previous arrays to new length
+        for idx in range(3):
+            if not prev_series[idx]:
+                prev_series[idx] = [0] * len(new_series[idx])
+            elif len(prev_series[idx]) < len(new_series[idx]):
+                pad = [prev_series[idx][-1]] * (len(new_series[idx]) - len(prev_series[idx]))
+                prev_series[idx] = prev_series[idx] + pad
+
+        steps = 12
+        xs = list(range(len(self.time_stamps)))
+
+        # Ensure line artists exist (axes may have been cleared)
+        if not getattr(self, "trend_lines", None) or len(self.trend_lines) != 3 or any(getattr(l, 'axes', None) is not self.trend_ax for l in self.trend_lines):
+            self.trend_ax.cla()
+            self.trend_lines = []
+            for c in colors:
+                line, = self.trend_ax.plot([], [], color=c, linewidth=2.2)
+                self.trend_lines.append(line)
+
+        # Ensure axis cosmetics
+        self.trend_ax.set_facecolor(bg)
+        self.trend_fig.patch.set_facecolor(bg)
+        self.trend_ax.set_title("Sentiment Trend Over Time", color=txt, fontsize=14, pad=12)
+        self.trend_ax.set_xlabel("Time", color=txt, fontsize=10)
+        self.trend_ax.set_ylabel("Count", color=txt, fontsize=10)
+        self.trend_ax.grid(True, linestyle="--", alpha=0.25, color=txt)
+        self.trend_ax.tick_params(axis="x", rotation=45, labelcolor=txt, labelsize=8)
+        self.trend_ax.tick_params(axis="y", labelcolor=txt, labelsize=8)
+
+        # Legend (recreate once)
+        if not getattr(self, "_trend_legend", None):
+            self._trend_legend = self.trend_ax.legend(labels, loc="upper left", facecolor=bg, edgecolor=theme.border_color(), labelcolor=txt, fontsize=8)
+
+        def frame(i=1):
+            t = i / float(steps)
+            for idx, line in enumerate(self.trend_lines):
+                prev = prev_series[idx]
+                new = new_series[idx]
+                interp = [p + (n - p) * t for p, n in zip(prev, new)]
+                line.set_data(xs, interp)
+            # Adjust view limits
+            self.trend_ax.relim()
+            self.trend_ax.autoscale_view()
+            # Thin x ticks and apply labels from timestamps
+            if len(xs) > 0:
+                if len(xs) > 12:
+                    step = max(len(xs) // 12, 1)
+                    idxs = xs[::step]
+                else:
+                    idxs = xs
+                labels = [self.time_stamps[i] for i in idxs]
+                self.trend_ax.set_xticks(idxs)
+                self.trend_ax.set_xticklabels(labels, rotation=45, color=txt, fontsize=8)
+            self.trend_canvas.draw_idle()
+            if i < steps:
+                self.after(16, lambda: frame(i + 1))
+            else:
+                self._trend_prev = [arr[:] for arr in new_series]
+                self._ensure_chart_layout()
+
+        frame(1)
 
     def update_theme(self, mode):
         """Redraw charts to adapt to current theme."""
@@ -877,78 +938,94 @@ Requirements:
             pass
 
     # ------------------------------------------------------------------
-    # Square sizing helpers
+    # Responsive layout helpers
     # ------------------------------------------------------------------
-    def _current_square_dim(self) -> int:
+    def _arrange_chart_grid(self, event=None):
         try:
-            # Largest square that fits two side-by-side with padding
-            fw = max(self.fig_frame.winfo_width(), 300)
-            fh = max(self.fig_frame.winfo_height(), 300)
-            each_w = max(120, (fw - 40) / 2)  # ~20 outer + 10 per widget
-            dim = int(max(120, min(each_w, fh - 20)))
-            return dim
+            w = max(self.fig_frame.winfo_width(), 0)
         except Exception:
-            return 400
+            w = 0
+        stacked = w < 800  # stack on smaller widths
+        if stacked == self._charts_stacked:
+            return
 
-    def _apply_square_size(self):
-        dim = self._current_square_dim()
-        for cvs in (getattr(self, 'canvas', None), getattr(self, 'trend_canvas', None)):
-            if not cvs:
-                continue
-            try:
-                widget = cvs.get_tk_widget()
-                widget.configure(width=dim, height=dim)
-                fig = cvs.figure
-                dpi = fig.get_dpi() if hasattr(fig, 'get_dpi') else 100
-                fig.set_size_inches(dim / float(dpi), dim / float(dpi), forward=True)
-                cvs.draw()
-            except Exception:
-                pass
-
-    def _on_fig_frame_resize(self, event):
+        # Clear any existing grid placement
         try:
-            self._apply_square_size()
+            self.pie_container.grid_forget()
+            self.trend_container.grid_forget()
         except Exception:
             pass
 
+        if stacked:
+            try:
+                self.fig_frame.grid_rowconfigure(0, weight=1)
+                self.fig_frame.grid_rowconfigure(1, weight=1)
+                self.pie_container.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+                self.trend_container.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+            except Exception:
+                self.pie_container.pack(fill="both", expand=True, padx=8, pady=8)
+                self.trend_container.pack(fill="both", expand=True, padx=8, pady=8)
+        else:
+            try:
+                self.fig_frame.grid_rowconfigure(0, weight=1)
+                self.fig_frame.grid_rowconfigure(1, weight=0)
+                self.pie_container.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+                self.trend_container.grid(row=0, column=1, sticky="nsew", padx=8, pady=8)
+            except Exception:
+                self.pie_container.pack(side="left", fill="both", expand=True, padx=8, pady=8)
+                self.trend_container.pack(side="left", fill="both", expand=True, padx=8, pady=8)
+
+        self._charts_stacked = stacked
+
+    def _ensure_chart_layout(self):
+        # Make sure containers are placed (in case called before first configure)
+        if self._charts_stacked is None:
+            self._arrange_chart_grid()
+
     def _show_samples(self):
-        """Display sample tweets for each sentiment category."""
-        # Clear previous samples
-        if self.example_textbox:
-            self.example_textbox.destroy()
-            
-        # Create frame to hold textbox and scrollbar
-        text_frame = ctk.CTkFrame(self.samples_frame)
-        text_frame.pack(pady=8, fill="both", expand=True)
-        
-        # Create new text display with horizontal scrolling
-        self.example_textbox = ctk.CTkTextbox(
-            text_frame, 
-            width=700, 
-            height=180,
-            wrap="none"  # Disable text wrapping to enable horizontal scrolling
-        )
-        self.example_textbox.pack(side="left", fill="both", expand=True)
-        
-        # Insert text without using tag_config with font option
-        self.example_textbox.insert("end", "Sample Tweets\n\n")
-        
-        # Add samples for each sentiment
-        for sentiment, tweets in self.sample_tweets.items():
-            # Insert sentiment heading
-            self.example_textbox.insert("end", f"{sentiment} examples:\n")
-            
-            # Add sample tweets or placeholder
-            if tweets:
-                for tweet in tweets:
-                    self.example_textbox.insert("end", f"  • {tweet}\n")
+        """Display sample items in three columns (Positive/Neutral/Negative).
+        Clears old widgets to avoid growing empty space.
+        """
+        # Clear previous widgets inside samples_frame
+        try:
+            for child in self.samples_frame.winfo_children():
+                child.destroy()
+        except Exception:
+            pass
+
+        # Grid layout with three equal columns
+        try:
+            self.samples_frame.grid_columnconfigure(0, weight=1, uniform="scols")
+            self.samples_frame.grid_columnconfigure(1, weight=1, uniform="scols")
+            self.samples_frame.grid_columnconfigure(2, weight=1, uniform="scols")
+        except Exception:
+            pass
+
+        sentiments = [
+            ("Positive", "#4caf50"),
+            ("Neutral", "#9e9e9e"),
+            ("Negative", "#e53935"),
+        ]
+
+        for idx, (label, color) in enumerate(sentiments):
+            col = ctk.CTkFrame(self.samples_frame)
+            try:
+                col.grid(row=0, column=idx, padx=6, pady=6, sticky="nsew")
+            except Exception:
+                col.pack(side="left", expand=True, fill="both", padx=6, pady=6)
+
+            title = ctk.CTkLabel(col, text=f"{label} Examples", text_color=color, font=("Arial", 13, "bold"))
+            title.pack(anchor="w", padx=6, pady=(6, 4))
+
+            tb = ctk.CTkTextbox(col, height=180, wrap="word")
+            tb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+            items = self.sample_tweets.get(label, [])
+            if items:
+                text = "\n\n".join(f"• {t}" for t in items[:5])
             else:
-                self.example_textbox.insert("end", "  No examples available\n")
-                
-            self.example_textbox.insert("end", "\n")
-            
-        # Make read-only
-        self.example_textbox.configure(state="disabled")
+                text = "(no examples yet)"
+            tb.insert("1.0", text)
+            tb.configure(state="disabled")
         
     def _update_stats(self):
         """Update the statistics display."""
@@ -985,6 +1062,60 @@ Requirements:
         except Exception as e:
             print(f"Error updating stats: {e}")
             self.stats_text.configure(text="Error calculating statistics")
+
+    def _update_stats_enhanced(self):
+        """Enhanced statistics with date and key info."""
+        if not self.time_stamps:
+            self.stats_text.configure(text="No data available")
+            return
+
+        try:
+            totals = {k: sum(v) for k, v in self.sentiment_counts.items()}
+            total_tweets = sum(totals.values())
+            percentages = {s: ((totals.get(s, 0) / total_tweets * 100) if total_tweets > 0 else 0)
+                           for s in ["Positive", "Neutral", "Negative"]}
+
+            dominant = max(totals.items(), key=lambda x: x[1])[0] if total_tweets > 0 else "None"
+            first_time = self.time_stamps[0]
+            last_time = self.time_stamps[-1]
+            intervals = len(self.time_stamps)
+
+            totals_by_ts = [
+                (self.time_stamps[i], self.sentiment_counts["Positive"][i]
+                 + self.sentiment_counts["Neutral"][i]
+                 + self.sentiment_counts["Negative"][i])
+                for i in range(intervals)
+            ]
+            peak_ts, peak_val = max(totals_by_ts, key=lambda t: t[1]) if totals_by_ts else ("-", 0)
+            avg_per_interval = (total_tweets / intervals) if intervals > 0 else 0
+
+            if getattr(self, "current_csv_path", None):
+                context = f"Source: CSV · {os.path.basename(self.current_csv_path)}"
+            else:
+                src = getattr(self, "source_var", None).get() if hasattr(self, "source_var") else "Live"
+                query = self.entry.get().strip() if hasattr(self, "entry") else ""
+                context = f"Source: Live · {src}{f' · {query}' if query else ''}"
+
+            today = datetime.now().strftime("%Y-%m-%d")
+            now = datetime.now().strftime("%H:%M:%S")
+
+            stats_lines = [
+                f"Date: {today} · Last update: {now}",
+                context,
+                f"Time range: {first_time} - {last_time} ({intervals} intervals)",
+                f"Total tweets: {total_tweets} · Avg/interval: {avg_per_interval:.2f} · Peak: {peak_ts} ({peak_val})",
+                (
+                    f"Positive: {totals.get('Positive', 0)} ({percentages['Positive']:.1f}%)   "
+                    f"Neutral: {totals.get('Neutral', 0)} ({percentages['Neutral']:.1f}%)   "
+                    f"Negative: {totals.get('Negative', 0)} ({percentages['Negative']:.1f}%)"
+                ),
+                f"Dominant: {dominant} ({percentages.get(dominant, 0):.1f}%)",
+            ]
+            self.stats_text.configure(text="\n".join(stats_lines))
+
+        except Exception as e:
+            print(f"Error updating stats: {e}")
+            self.stats_text.configure(text="Error calculating statistics")
             
             
     def cancel_page_tasks(self):
@@ -998,8 +1129,7 @@ Requirements:
                     pass
                 self.countdown_job = None
                 
-            # Mark as not running
-            self.running = False
+            # Do not stop collection here; keep running state.
         except Exception as e:
             print(f"Error canceling page tasks: {e}")
             

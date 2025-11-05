@@ -10,7 +10,15 @@ class ConfigManager:
             "confidence_threshold": 70,
             "remove_urls": True,
             "remove_mentions": True,
+            # Model selection
+            # model_source: 'huggingface' or 'local'
+            "model_source": "huggingface",
+            # For huggingface source, use repo id in 'model'
             "model": "cardiffnlp/twitter-roberta-base-sentiment",
+            # For local source, use a directory path to a local transformer model
+            "local_model_path": "",
+            # For local models, specify type: 'transformer' or 'pytorch'
+            "local_model_type": "transformer",
         }
         self._load()
 
