@@ -181,3 +181,5 @@ trash/sentiment140.csv
 models/archive
 
 archive/
+
+tweepyAPI.py
