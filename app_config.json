@@ -2,7 +2,7 @@
   "confidence_threshold": 70,
   "remove_urls": true,
   "remove_mentions": true,
-  "model_source": "huggingface",
+  "model_source": "local",
   "model": "cardiffnlp/twitter-roberta-base-sentiment",
   "local_model_path": "D:\\xMaro\\University Of Bahrain\\AI Systems Master\\Thesis\\Sentify-App\\models\\model_NEWLSTM",
   "local_model_type": "pytorch",

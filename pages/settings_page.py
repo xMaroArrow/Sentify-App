@@ -74,6 +74,22 @@ class SettingsPage(ctk.CTkFrame):
             width=440,
         )
 
+        # Custom HuggingFace model input (manual repo id)
+        self.hf_custom_frame = ctk.CTkFrame(model_frame, fg_color="transparent")
+        ctk.CTkLabel(self.hf_custom_frame, text="Custom HF repo id", anchor="w").pack(anchor="w")
+        custom_row = ctk.CTkFrame(self.hf_custom_frame, fg_color="transparent")
+        custom_row.pack(fill="x")
+        self.hf_custom_entry = ctk.CTkEntry(custom_row, width=340, placeholder_text="e.g. user/model-name or org/model")
+        # Prefill with current if using HF
+        try:
+            if (self.config_manager.get("model_source", "huggingface") or "").lower() == "huggingface":
+                self.hf_custom_entry.insert(0, current_hf)
+        except Exception:
+            pass
+        self.hf_custom_entry.pack(side="left", padx=(0, 6), pady=4)
+        self.hf_custom_apply = ctk.CTkButton(custom_row, text="Apply", width=80, command=self._apply_custom_hf_model)
+        self.hf_custom_apply.pack(side="left", pady=4)
+
         # Local models dropdown (transformers + non-transformers)
         self._local_transformers = self._scan_local_transformer_models()
         self._local_pytorch = self._scan_local_pytorch_models()
@@ -206,6 +222,47 @@ class SettingsPage(ctk.CTkFrame):
         SentimentAnalyzer.reload()
         self._update_model_status()
 
+    def _apply_custom_hf_model(self):
+        """Apply a manually entered Hugging Face repo id."""
+        try:
+            repo = (self.hf_custom_entry.get() or "").strip()
+            if not repo:
+                return
+            # Persist selection
+            self.config_manager.set("model", repo)
+            self.config_manager.set("model_source", "huggingface")
+            # Update dropdown values to include this repo at the top if missing
+            try:
+                current_values = list(self.hf_model_dropdown._values) if hasattr(self.hf_model_dropdown, "_values") else []
+            except Exception:
+                current_values = []
+            if repo not in current_values:
+                new_values = [repo] + [v for v in current_values if v != repo]
+                try:
+                    self.hf_model_dropdown.configure(values=new_values)
+                except Exception:
+                    pass
+            # Reflect selection
+            try:
+                self.hf_model_var.set(repo)
+            except Exception:
+                pass
+            # Reload analyzer
+            SentimentAnalyzer.reload()
+            self._update_model_status()
+            try:
+                self.hf_custom_apply.configure(text="Applied")
+                self.after(1200, lambda: self.hf_custom_apply.configure(text="Apply"))
+            except Exception:
+                pass
+        except Exception:
+            # Keep UI responsive even if reload fails
+            try:
+                self.hf_custom_apply.configure(text="Failed")
+                self.after(1500, lambda: self.hf_custom_apply.configure(text="Apply"))
+            except Exception:
+                pass
+
     def _on_local_model_change(self, value: str):
         if not value or value.startswith("<"):
             return
@@ -236,6 +293,16 @@ class SettingsPage(ctk.CTkFrame):
             self.local_model_dropdown.pack(pady=(0, 5), anchor="w")
         else:
             self.hf_model_dropdown.pack(pady=(0, 5), anchor="w")
+            try:
+                self.hf_custom_frame.pack(pady=(0, 6), fill="x", anchor="w")
+            except Exception:
+                pass
+        # Hide custom frame when not on HF
+        if source == "local":
+            try:
+                self.hf_custom_frame.pack_forget()
+            except Exception:
+                pass
 
     def _scan_local_transformer_models(self):
         """Return a list of local directories (recursively) that look like transformer models."""
@@ -350,6 +417,14 @@ class SettingsPage(ctk.CTkFrame):
                 path = self.config_manager.get("local_model_path", "") or ""
                 mtype = self.config_manager.get("local_model_type", "transformer") or "transformer"
                 detail = f"{mtype}: {path}"
+
+            # Special case: Local source but no valid selection
+            if source == "local":
+                path = (self.config_manager.get("local_model_path", "") or "").strip()
+                valid = bool(path) and self._is_valid_models_path(path) and os.path.exists(path)
+                if not valid:
+                    self.model_status_label.configure(text="Model status: No local model selected", text_color="#E74C3C")
+                    return
 
             if active:
                 self.model_status_label.configure(text=f"Model status: Active ({source}) {detail}", text_color="#2ECC71")

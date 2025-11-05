@@ -85,6 +85,11 @@ class MyApp(ctk.CTk):
 
         # Create config manager and add sidebar items
         self.config_manager = ConfigManager()
+        # Ensure startup default uses Huggingface as model source
+        try:
+            self.config_manager.set("model_source", "huggingface")
+        except Exception:
+            pass
         # Add sidebar items
         self.add_sidebar_items()
 
@@ -196,6 +201,14 @@ class MyApp(ctk.CTk):
 
     def show_page(self, page_name):
         """Display the selected page."""
+        # Move focus to a stable widget to avoid focusing destroyed canvases
+        try:
+            if hasattr(self, "app_title"):
+                self.app_title.focus_set()
+            else:
+                self.focus_set()
+        except Exception:
+            pass
         # Hide only pages that exist and are currently managed by grid
         for page in self.pages.values():
             try:
@@ -215,6 +228,10 @@ class MyApp(ctk.CTk):
         selected = self.pages.get(page_name)
         if selected is not None and selected.winfo_exists():
             selected.grid(row=0, column=0, sticky="nsew")
+            try:
+                selected.focus_set()
+            except Exception:
+                pass
 
     def toggle_settings_panel(self):
         """Show/Hide the small settings panel under the menu button."""
