@@ -49,6 +49,43 @@ class SettingsPage(ctk.CTkFrame):
                                                 variable=self.model_var, 
                                                 command=self.change_model)
         self.model_dropdown.pack(pady=5)
+
+        # Reddit API credentials
+        reddit_frame = ctk.CTkFrame(self)
+        reddit_frame.pack(pady=20, fill="x", padx=20)
+        ctk.CTkLabel(reddit_frame, text="Reddit API Credentials").pack(pady=(10, 5), anchor="w")
+
+        # Client ID
+        ctk.CTkLabel(reddit_frame, text="Client ID").pack(pady=(4, 2), anchor="w")
+        self.reddit_client_id = ctk.CTkEntry(reddit_frame, width=400)
+        current_id = str(self.config_manager.get("reddit_client_id", ""))
+        if current_id:
+            self.reddit_client_id.insert(0, current_id)
+        self.reddit_client_id.pack(pady=(0, 6), anchor="w")
+
+        # Client Secret
+        ctk.CTkLabel(reddit_frame, text="Client Secret").pack(pady=(4, 2), anchor="w")
+        self.reddit_client_secret = ctk.CTkEntry(reddit_frame, show="*", width=400)
+        current_secret = str(self.config_manager.get("reddit_client_secret", ""))
+        if current_secret:
+            self.reddit_client_secret.insert(0, current_secret)
+        self.reddit_client_secret.pack(pady=(0, 6), anchor="w")
+
+        # User Agent
+        ctk.CTkLabel(reddit_frame, text="User Agent").pack(pady=(4, 2), anchor="w")
+        self.reddit_user_agent = ctk.CTkEntry(reddit_frame, width=400)
+        current_ua = str(self.config_manager.get("reddit_user_agent", "Sentify-App/1.0 (by u/username)"))
+        if current_ua:
+            self.reddit_user_agent.insert(0, current_ua)
+        self.reddit_user_agent.pack(pady=(0, 10), anchor="w")
+
+        save_btn = ctk.CTkButton(
+            reddit_frame,
+            text="Save Reddit Credentials",
+            command=self._save_reddit_credentials,
+            width=220,
+        )
+        save_btn.pack(pady=(0, 12), anchor="w")
         
     def update_threshold(self, value):
         self.threshold_value.configure(text=f"{value:.0f}%")
@@ -63,3 +100,8 @@ class SettingsPage(ctk.CTkFrame):
         self.config_manager.set("model", value)
         # Show a warning that model will reload on next application start
         # ...
+
+    def _save_reddit_credentials(self):
+        self.config_manager.set("reddit_client_id", self.reddit_client_id.get().strip())
+        self.config_manager.set("reddit_client_secret", self.reddit_client_secret.get().strip())
+        self.config_manager.set("reddit_user_agent", self.reddit_user_agent.get().strip())

@@ -17,6 +17,7 @@ import pyautogui
 
 # Import the shared sentiment analyzer
 from addons.sentiment_analyzer import SentimentAnalyzer
+from utils import theme
 
 class Page3(ctk.CTkFrame):
     """
@@ -40,6 +41,10 @@ class Page3(ctk.CTkFrame):
         # Create scrollable main frame
         self.scrollable = ctk.CTkScrollableFrame(self, width=850, height=800)
         self.scrollable.pack(expand=True, fill="both", padx=10, pady=10)
+        try:
+            self.scrollable.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
 
         # UI Elements - Headers
         self._create_header()
@@ -187,8 +192,12 @@ class Page3(ctk.CTkFrame):
         """Create the visualization area for sentiment charts."""
         # Chart container with fixed size to prevent resizing issues
         self.canvas_frame = ctk.CTkFrame(self.scrollable)
-        self.canvas_frame.pack(pady=10, fill="x")
-        self.canvas_frame.configure(height=300)
+        self.canvas_frame.pack(pady=10, padx=10, fill="x")
+        self.canvas_frame.configure(height=400)
+        try:
+            self.canvas_frame.configure(border_width=1, border_color=theme.border_color())
+        except Exception:
+            pass
         
         # Initialize chart placeholders
         self.sentiment_figure = None
@@ -442,51 +451,65 @@ Tips:
 
     def plot_sentiment(self, sentiment):
         """Create enhanced pie chart visualization for sentiment distribution."""
+        # Skip plotting if no sentiment information is available
+        if not sentiment:
+            self._display_empty_chart("No sentiment data available")
+            return
+
         # Clean up previous figure
         if self.sentiment_figure:
             plt.close(self.sentiment_figure)
 
         # Create new figure with improved styling
-        self.sentiment_figure, ax = plt.subplots(figsize=(4, 3))
-        
-        # Dark theme styling
-        dark = "#2B2B2B"
-        self.sentiment_figure.patch.set_facecolor(dark)
-        ax.set_facecolor(dark)
-        
+        self.sentiment_figure, ax = plt.subplots(figsize=(5, 4))
+
+        # Theme-aware background
+        bg = theme.plot_bg()
+        txt = theme.text_color()
+        self.sentiment_figure.patch.set_facecolor(bg)
+        ax.set_facecolor(bg)
+
         # Configure text colors
         plt.rcParams.update({
-            "text.color": "white",
-            "axes.labelcolor": "white",
-            "xtick.color": "white",
-            "ytick.color": "white",
+            "text.color": txt,
+            "axes.labelcolor": txt,
+            "xtick.color": txt,
+            "ytick.color": txt,
         })
 
-        # Prepare data for visualization
+        # Prepare data for visualization and guard against invalid values
         sentiments = ["Neutral", "Negative", "Positive"]
-        values = [sentiment.get(s, 0) for s in sentiments]
-        
+        values = [max(sentiment.get(s, 0), 0) for s in sentiments]
+        total = sum(values)
+
+        if total <= 0:
+            plt.close(self.sentiment_figure)
+            self._display_empty_chart("No sentiment data available")
+            return
+
         # Define colors with improved visual hierarchy
         colors = ["#ffb300", "#e91e63", "#4caf50"]  # amber, pink, green
-        
+
         # Create enhanced pie chart
         wedges, texts, autotexts = ax.pie(
             values,
             labels=sentiments,
             autopct="%1.1f%%",
             startangle=90,
-            textprops={"color": "white", "fontweight": "bold"},
+            textprops={"color": txt, "fontweight": "bold"},
             colors=colors,
-            wedgeprops={"edgecolor": dark, "linewidth": 1}
+            wedgeprops={"edgecolor": bg, "linewidth": 1}
         )
-        
+
         # Improve font size for better readability
         for autotext in autotexts:
             autotext.set_fontsize(9)
 
         # Add title with the dominant sentiment highlighted
         dominant = max(sentiment.items(), key=lambda x: x[1])[0]
-        ax.set_title(f"Sentiment: {dominant}", color="white", fontweight="bold")
+        ax.set_title(f"Sentiment: {dominant}", color=txt, fontweight="bold")
+
+        self.sentiment_figure.tight_layout()
 
         # Update canvas
         if self.sentiment_canvas:
@@ -494,7 +517,45 @@ Tips:
 
         self.sentiment_canvas = FigureCanvasTkAgg(self.sentiment_figure, master=self.canvas_frame)
         self.sentiment_canvas.draw()
-        self.sentiment_canvas.get_tk_widget().pack(pady=10)
+        self.sentiment_canvas.get_tk_widget().pack(pady=10, expand=True)
+
+    def _display_empty_chart(self, message: str):
+        """Display a placeholder when there is no sentiment data to visualize."""
+        if self.sentiment_figure:
+            plt.close(self.sentiment_figure)
+
+        self.sentiment_figure, ax = plt.subplots(figsize=(5, 4))
+        bg = theme.plot_bg()
+        txt = theme.text_color()
+        self.sentiment_figure.patch.set_facecolor(bg)
+        ax.set_facecolor(bg)
+        ax.axis("off")
+        ax.text(0.5, 0.5, message, color=txt, ha="center", va="center", fontsize=12)
+        self.sentiment_figure.tight_layout()
+        try:
+            self.sentiment_figure.subplots_adjust(top=0.88)
+        except Exception:
+            pass
+
+        if self.sentiment_canvas:
+            self.sentiment_canvas.get_tk_widget().destroy()
+
+        self.sentiment_canvas = FigureCanvasTkAgg(self.sentiment_figure, master=self.canvas_frame)
+        self.sentiment_canvas.draw()
+        self.sentiment_canvas.get_tk_widget().pack(pady=10, expand=True)
+
+    def update_theme(self, mode):
+        """Refresh the chart to reflect current theme."""
+        try:
+            # If we have a displayed chart, re-run last plot operation by using the existing content
+            if hasattr(self, 'last_analyzed_text') and self.last_analyzed_text:
+                # Try to re-analyze to refresh chart colors without changing values
+                sentiment = self.sentiment_analyzer.analyze_text(self.last_analyzed_text)
+                self.plot_sentiment(sentiment)
+            else:
+                self._display_empty_chart("No sentiment data available")
+        except Exception:
+            pass
 
     def log_result(self, text, sentiment):
         """Log analysis results to a daily log file with improved formatting."""

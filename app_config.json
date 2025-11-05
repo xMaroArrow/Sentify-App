@@ -1,0 +1,9 @@
+{
+  "confidence_threshold": 70,
+  "remove_urls": true,
+  "remove_mentions": true,
+  "model": "cardiffnlp/twitter-roberta-base-sentiment",
+  "reddit_client_id": "y_V7rsC7los0whtY1O2g0g",
+  "reddit_client_secret": "HkmoIrvPiN9FmFCyh9-1dKqkQYd5OA",
+  "reddit_user_agent": "Sentify-App:1.0 (by u/xMaroMask)"
+}
