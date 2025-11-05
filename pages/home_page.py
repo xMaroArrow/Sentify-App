@@ -46,8 +46,8 @@ class HomePage(ctk.CTkFrame):
         title.pack(pady=(20, 0))
         
         subtitle = ctk.CTkLabel(
-            header_frame, 
-            text="AI-Powered Sentiment Analysis Platform",
+            header_frame,
+            text="AI-Powered Sentiment Intelligence Platform",
             font=("Arial", 18)
         )
         subtitle.pack(pady=(0, 10))
@@ -70,7 +70,7 @@ class HomePage(ctk.CTkFrame):
         # Add a brief description
         description = ctk.CTkLabel(
             header_frame,
-            text="Analyze sentiment in social media, text, and more.",
+            text="Effortlessly explore overviews, trends, insights, reports, and exports to understand how people feel.",
             font=("Arial", 14),
             wraplength=700
         )
@@ -86,17 +86,23 @@ class HomePage(ctk.CTkFrame):
             text="Welcome to Sentify",
             font=("Arial", 24, "bold")
         )
-        welcome_title.pack(pady=(15, 10), padx=15, anchor="w")
-        
-        welcome_text = """
-Sentify is a powerful sentiment analysis tool that helps you understand the emotional tone behind text content. 
-Whether you're analyzing social media feedback, customer reviews, or market research, 
-Sentify provides accurate sentiment classification and visualization.
+        welcome_title.pack(pady=(15, 4), padx=20, anchor="w")
 
-This application uses state-of-the-art natural language processing to classify text as Positive, Neutral, or Negative, 
-giving you valuable insights into how people feel about your products, services, or topics of interest.
-        """
-        
+        welcome_subtitle = ctk.CTkLabel(
+            welcome_frame,
+            text="Your command center for sentiment intelligence across every workflow.",
+            font=("Arial", 15),
+            text_color="#0078D7"
+        )
+        welcome_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
+
+        welcome_text = (
+            "Sentify brings together real-time monitoring, granular insights, and polished reporting so your team "
+            "can respond with confidence. Navigate through the sections below to review a quick overview, discover "
+            "trends as they develop, unlock deeper insights, compile polished reports, and manage exports that keep "
+            "stakeholders informed."
+        )
+
         welcome_message = ctk.CTkLabel(
             welcome_frame,
             text=welcome_text,
@@ -104,96 +110,111 @@ giving you valuable insights into how people feel about your products, services,
             wraplength=850,
             justify="left"
         )
-        welcome_message.pack(pady=(0, 15), padx=15)
+        welcome_message.pack(pady=(0, 18), padx=20)
         
     def _create_features(self):
         """Create feature highlights section."""
         features_frame = ctk.CTkFrame(self.main_container)
         features_frame.pack(fill="x", padx=10, pady=10)
-        
+
         features_title = ctk.CTkLabel(
             features_frame,
-            text="Key Features",
+            text="Discover What's Possible",
             font=("Arial", 24, "bold")
         )
-        features_title.pack(pady=(15, 10), padx=15, anchor="w")
-        
-        # Create grid for features
+        features_title.pack(pady=(15, 4), padx=20, anchor="w")
+
+        features_subtitle = ctk.CTkLabel(
+            features_frame,
+            text="Each workspace is tailored to help you move from raw feedback to actionable intelligence.",
+            font=("Arial", 14)
+        )
+        features_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
+
         features_grid = ctk.CTkFrame(features_frame, fg_color="transparent")
-        features_grid.pack(fill="x", padx=15, pady=(0, 15))
-        
-        # Feature 1: Single Text Analysis
-        feature1_frame = self._create_feature_card(
-            features_grid,
-            "Single Text Analysis",
-            "Analyze individual tweets, posts, or text segments with detailed sentiment breakdown.",
-            "Page 1"
-        )
-        feature1_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        
-        # Feature 2: Real-time Monitoring
-        feature2_frame = self._create_feature_card(
-            features_grid,
-            "Real-time Monitoring",
-            "Track sentiment trends in real-time for hashtags, keywords, or topics of interest.",
-            "Page 2"
-        )
-        feature2_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-        
-        # Feature 3: Clipboard Analysis
-        feature3_frame = self._create_feature_card(
-            features_grid,
-            "Clipboard Analysis",
-            "Quickly analyze text from anywhere with clipboard integration and keyboard shortcuts.",
-            "Page 3"
-        )
-        feature3_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        
-        # Feature 4: Visual Analytics
-        feature4_frame = self._create_feature_card(
-            features_grid,
-            "Visual Analytics",
-            "Understand sentiment data with intuitive charts, graphs, and visualizations.",
-            None
-        )
-        feature4_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
-        
-        # Configure grid columns to be equal width
-        features_grid.grid_columnconfigure(0, weight=1)
-        features_grid.grid_columnconfigure(1, weight=1)
-        
-    def _create_feature_card(self, parent, title, description, page_name=None):
+        features_grid.pack(fill="x", padx=20, pady=(0, 15))
+
+        feature_definitions = [
+            {
+                "title": "Overview",
+                "description": "Summarize recent sentiment at a glance and monitor highlights the moment you log in.",
+                "page": "Page1",
+                "cta": "Open Overview"
+            },
+            {
+                "title": "Trends",
+                "description": "Visualize evolving conversations, spikes in activity, and shifts in audience emotion.",
+                "page": "Page2",
+                "cta": "View Trends"
+            },
+            {
+                "title": "Insights",
+                "description": "Dive deeper into topics, keywords, and drivers influencing positive or negative reactions.",
+                "page": "Page3",
+                "cta": "Explore Insights"
+            },
+            {
+                "title": "Reports",
+                "description": "Build curated summaries with charts ready to share across your organization.",
+                "page": "Page4",
+                "cta": "Build Reports"
+            },
+            {
+                "title": "Exports",
+                "description": "Download datasets, tables, and visuals to integrate with your existing workflows.",
+                "page": "Page5",
+                "cta": "Manage Exports"
+            }
+        ]
+
+        for index, feature in enumerate(feature_definitions):
+            row, column = divmod(index, 3)
+            card = self._create_feature_card(
+                features_grid,
+                feature["title"],
+                feature["description"],
+                feature.get("page"),
+                feature.get("cta")
+            )
+            card.grid(row=row, column=column, padx=10, pady=10, sticky="nsew")
+
+        for column in range(3):
+            features_grid.grid_columnconfigure(column, weight=1)
+
+    def _create_feature_card(self, parent, title, description, page_name=None, cta_label=None):
         """Create a feature card with title, description and optional navigation button."""
-        card = ctk.CTkFrame(parent)
-        
-        # Title
+        card = ctk.CTkFrame(parent, corner_radius=12)
+
         card_title = ctk.CTkLabel(
             card,
             text=title,
             font=("Arial", 18, "bold")
         )
-        card_title.pack(pady=(15, 10), padx=15, anchor="w")
-        
-        # Description
+        card_title.pack(pady=(18, 6), padx=18, anchor="w")
+
         card_desc = ctk.CTkLabel(
             card,
             text=description,
             font=("Arial", 13),
-            wraplength=350,
+            wraplength=320,
             justify="left"
         )
-        card_desc.pack(pady=(0, 15), padx=15, anchor="w")
-        
-        # Add navigation button if page name is provided
+        card_desc.pack(pady=(0, 18), padx=18, anchor="w")
+
         if page_name:
+            button_text = cta_label or f"Open {title}"
             card_button = ctk.CTkButton(
                 card,
-                text=f"Go to {page_name}",
+                text=button_text,
                 command=lambda p=page_name: self._navigate_to_page(p),
-                width=150
+                height=38,
+                corner_radius=10,
+                font=("Arial", 13, "bold"),
+                fg_color="#1F6AA5",
+                hover_color="#155a8a"
             )
-            card_button.pack(pady=(0, 15), padx=15, anchor="e")
-        
+            card_button.pack(pady=(0, 18), padx=18, anchor="e")
+
         return card
     
     def _navigate_to_page(self, page_name):
@@ -220,62 +241,54 @@ giving you valuable insights into how people feel about your products, services,
         """Create quick navigation section with buttons for all pages."""
         nav_frame = ctk.CTkFrame(self.main_container)
         nav_frame.pack(fill="x", padx=10, pady=10)
-        
+
         nav_title = ctk.CTkLabel(
             nav_frame,
-            text="Quick Navigation",
+            text="Navigate the Workspace",
             font=("Arial", 24, "bold")
         )
-        nav_title.pack(pady=(15, 10), padx=15, anchor="w")
-        
-        # Create a row of navigation buttons
+        nav_title.pack(pady=(15, 4), padx=20, anchor="w")
+
+        nav_subtitle = ctk.CTkLabel(
+            nav_frame,
+            text="Jump directly into the area you need with streamlined, consistent controls.",
+            font=("Arial", 14)
+        )
+        nav_subtitle.pack(pady=(0, 12), padx=20, anchor="w")
+
         buttons_frame = ctk.CTkFrame(nav_frame, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        # Button for Page 1
-        page1_button = ctk.CTkButton(
-            buttons_frame,
-            text="Single Text Analysis",
-            command=lambda: self._navigate_to_page("Page1"),
-            width=200,
-            height=40,
-            font=("Arial", 14)
-        )
-        page1_button.pack(side="left", padx=10, pady=10)
-        
-        # Button for Page 2
-        page2_button = ctk.CTkButton(
-            buttons_frame,
-            text="Real-time Monitoring",
-            command=lambda: self._navigate_to_page("Page2"),
-            width=200,
-            height=40,
-            font=("Arial", 14)
-        )
-        page2_button.pack(side="left", padx=10, pady=10)
-        
-        # Button for Page 3
-        page3_button = ctk.CTkButton(
-            buttons_frame,
-            text="Clipboard Analysis",
-            command=lambda: self._navigate_to_page("Page3"),
-            width=200,
-            height=40,
-            font=("Arial", 14)
-        )
-        page3_button.pack(side="left", padx=10, pady=10)
-        
-        # Add optional settings button if you have a settings page
+        buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+        buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        nav_items = [
+            ("Overview", "Page1"),
+            ("Trends", "Page2"),
+            ("Insights", "Page3"),
+            ("Reports", "Page4"),
+            ("Exports", "Page5")
+        ]
+
         if hasattr(self, 'settings_page_exists') and self.settings_page_exists:
-            settings_button = ctk.CTkButton(
+            nav_items.append(("Settings", "Settings"))
+
+        button_style = {
+            "height": 48,
+            "corner_radius": 12,
+            "font": ("Arial", 15, "bold"),
+            "fg_color": "#1F6AA5",
+            "hover_color": "#155a8a"
+        }
+
+        for index, (label, page) in enumerate(nav_items):
+            row, column = divmod(index, 3)
+            button = ctk.CTkButton(
                 buttons_frame,
-                text="Settings",
-                command=lambda: self._navigate_to_page("Settings"),
-                width=150,
-                height=40,
-                font=("Arial", 14)
+                text=label,
+                command=lambda p=page: self._navigate_to_page(p),
+                **button_style
             )
-            settings_button.pack(side="left", padx=10, pady=10)
+            button.grid(row=row, column=column, padx=10, pady=10, sticky="ew")
     
     def _create_system_info(self):
         """Create system information section."""
@@ -368,3 +381,4 @@ giving you valuable insights into how people feel about your products, services,
             webbrowser.open(url)
         except Exception as e:
             print(f"Error opening URL: {e}")
+
