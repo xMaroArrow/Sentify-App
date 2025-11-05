@@ -176,6 +176,8 @@ sentiment_analysis_experiment/data/sentiment140.csv
 data/
 
 trash/
+trash/sentiment140.csv
+
+models/archive
 
 archive/
-models/archive

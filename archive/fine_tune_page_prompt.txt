@@ -1,0 +1,180 @@
+You are an expert Python developer working inside my existing CustomTkinter desktop app for social-media sentiment analysis. Read the current workspace (already connected to GitHub) and produce concrete, runnable code that **adds a new page dedicated to fine-tuning Hugging Face transformer models** for sentiment analysis. Follow these requirements precisely.
+
+## Project context (infer from repo)
+- Root has `main.py`, `pages/`, `utils/`, `models/` (names may be `utils.data_processor`, `models.model_trainer`, etc.).
+- The app already includes model training/evaluation pages and uses:
+  - `DataProcessor` (CSV loading, preprocessing, splits, tokenization / PyTorch datasets).
+  - `ModelTrainer` (training/evaluation for LSTM/CNN/Transformers, GPU setup, artifact saving).
+- Goal: add a **new page** that lets student researchers fine-tune pre-trained transformer models in a realistic, teachable way and **save** the resulting model for later use on the **Evaluation** page.
+
+## What to build
+1) **Create** a new file: `pages/page_finetune.py` with:
+   ```python
+   class PageFineTune(ctk.CTkFrame):
+       ...
+   ```
+   Use a **scrollable** layout consistent with the app (dark theme, padding, clean sections). Sections:
+
+   **Header**
+   - Title: “Transformer Fine-Tuning”
+   - Subtitle: “Fine-tune pre-trained models for social-media sentiment analysis”
+
+   **(1) Dataset**
+   - Button “Load Dataset (CSV)” → show chosen path.
+   - Preprocessing toggles reusing `DataProcessor` options: remove_urls, remove_mentions, lowercase, remove_punctuation, remove_hashtags, remove_numbers.
+   - Train/Val/Test split controls with **defaults** 80/10/10, **stratified** enabled by default.
+   - Dataset summary panel: total rows, unique labels, class distribution, first 5 rows (read-only).
+
+   **(2) Model & Tokenizer**
+   - Dropdown of common models **(pre-populate)**:
+     - `cardiffnlp/twitter-roberta-base-sentiment`
+     - `cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual`
+     - `distilbert-base-uncased`
+     - `finiteautomata/bertweet-base-sentiment-analysis`
+     - plus a free-text box “Custom model id…”
+   - Max sequence length (default **128**).
+   - Batch size (default **16**).
+   - Epochs (default **3**).
+   - Learning rate (default **2e-5**).
+   - Weight decay (default **0.01**).
+   - Warmup ratio (default **0.1**).
+   - Gradient clipping max-norm (default **1.0**).
+   - **Class imbalance** checkbox (default **ON** → compute class weights from training labels).
+   - **Mixed precision (AMP)** toggle (default **ON if CUDA available**, else OFF).
+   - **Layer freezing**:
+     - Checkbox: “Freeze base encoder” (default **OFF**).
+     - Numeric “Unfreeze last N encoder layers” (default **0**; if >0, unfreeze top N even when base frozen).
+   - Random seed (default **42**).
+
+   **(3) Training Controls**
+   - Buttons: “Start Fine-Tuning”, “Stop”, “Save Checkpoint Now”.
+   - Progress bar + ETA text + live **log console** (append messages).
+   - **Early stopping**: patience slider (default **2**), validation metric selector (default **F1-macro**).
+   - **Checkpointing**: every N epochs (default **1**).
+
+   **(4) Live Metrics & Visualizations**
+   - TabView with:
+     - “Learning Curves” (train/val loss, val accuracy, val F1-macro vs epochs).
+     - “Confusion Matrix”.
+     - “ROC”.
+     - “PR”.
+     - “Metrics Table”.
+   - Update at each epoch end and after final evaluation.
+
+   **(5) Export & Reuse**
+   - Buttons:
+     - “Evaluate Current Model”
+     - “Save Fine-Tuned Model”
+     - “Export Report (PDF/PNG/CSV)”
+   - When saving, write:
+     - `models/<model_name>/` with HF model dir (`config.json`, `pytorch_model.bin`, `tokenizer*`).
+     - `metadata.json`, `history.json`, `evaluation_results.json`, and a simple `README.txt`.
+   - Show a **summary card**: best val metric, test accuracy/F1, saved paths.
+
+   **(6) Learning Tooltips**
+   - Short help text on LR, epochs, warmup, freezing, class weights, early stopping, max_length, gradient clipping — focused on *why it matters* for fine-tuning.
+
+   **Threading/UX**
+   - Run training in a **background thread** (daemon).
+   - Keep UI responsive; disable inputs while training; implement `stop_requested` to stop safely after current batch.
+   - All heavy work off the main thread; UI updates via `after(...)`.
+
+2) **Extend/Use backend**:
+   - Reuse `DataProcessor` for load → preprocess → split → tokenization.
+   - If not present, **add** this function to `models/model_trainer.py` (keep style consistent with that file):
+     ```python
+     def train_transformer_finetune(
+         self,
+         data_processor: DataProcessor,
+         model_name: str,
+         pretrained_model: str,
+         max_length: int = 128,
+         batch_size: int = 16,
+         lr: float = 2e-5,
+         weight_decay: float = 0.01,
+         warmup_ratio: float = 0.1,
+         epochs: int = 3,
+         freeze_base: bool = False,
+         unfreeze_last_n_layers: int = 0,
+         use_amp: bool = True,
+         class_weighting: bool = True,
+         early_stopping_patience: int = 2,
+         val_metric: str = "f1_macro",
+         checkpoint_every: int = 1,
+         grad_clip_max_norm: float = 1.0,
+         seed: int = 42,
+         callbacks: Dict[str, Callable] | None = None,
+     ) -> Dict:
+     ```
+     **Implementation details (must-haves):**
+     - Load `AutoTokenizer` and `AutoModelForSequenceClassification` for `pretrained_model`.
+     - Adjust classifier head to `len(data_processor.class_names)`.
+     - Build dataloaders via `data_processor.prepare_pytorch_datasets(tokenizer=..., max_length=...)` for train/val/test.
+     - **Freezing**: if `freeze_base=True` then freeze encoder parameters; if `unfreeze_last_n_layers > 0`, unfreeze the last N encoder layers (handle BERT/RoBERTa naming like `encoder.layer[-k:]` or `roberta.encoder.layer[-k:]`).
+     - Optimizer: **AdamW**; Scheduler: **linear warmup/decay** using HF `get_linear_schedule_with_warmup` with `warmup_ratio`.
+     - Loss: `CrossEntropyLoss`; if `class_weighting=True`, compute weights from training labels (to device).
+     - **Mixed precision** with `autocast()` and `GradScaler` when `use_amp=True`.
+     - **Gradient clipping** each step using `grad_clip_max_norm`.
+     - **Early stopping** on `val_metric` (support at least `f1_macro`, `accuracy`).
+     - **Checkpointing** each `checkpoint_every` epochs into `models/<model_name>/checkpoints/epoch_X/` (save HF model + tokenizer).
+     - Maintain a `history` list of dicts per epoch: train_loss, val_loss, val_accuracy, val_f1_macro, lr, epoch_time.
+     - On finish: run **test** eval (accuracy; per-class precision/recall/F1; confusion matrix; ROC/PR if feasible); save `evaluation_results.json`.
+     - Return a dict with metrics, paths, and `classes`.
+
+   - Provide **callbacks hooks** (if not already standard in the repo):
+     - `on_log(msg: str)`
+     - `on_epoch_end(epoch: int, history_epoch: Dict)`
+     - `on_checkpoint(epoch: int, path: str)`
+     - `on_finished(results: Dict)`
+     The page should wire these to update logs, progress, plots, and the summary.
+
+3) **Defaults (“optimum” sensible values)**  
+   Set these as the **pre-filled defaults** in the page UI and function parameters:
+   - `max_length=128`
+   - `batch_size=16`
+   - `epochs=3`
+   - `lr=2e-5`
+   - `weight_decay=0.01`
+   - `warmup_ratio=0.1`
+   - `grad_clip_max_norm=1.0`
+   - `class_weighting=True`
+   - `use_amp=True` if CUDA; otherwise False
+   - `freeze_base=False`
+   - `unfreeze_last_n_layers=0`
+   - `early_stopping_patience=2`
+   - `val_metric="f1_macro"`
+   - `checkpoint_every=1`
+   - `seed=42`
+
+4) **Visualizations**
+   - Use Matplotlib to render learning curves, confusion matrix, ROC, PR, and metrics table.
+   - Refresh **end of each epoch** and **after final test**.
+
+5) **Saving / Artifacts**
+   - Save to `models/<model_name>/`:
+     - HF model dir (`config.json`, `pytorch_model.bin`, tokenizer files).
+     - `metadata.json`, `history.json`, `evaluation_results.json`, `README.txt`.
+   - Ensure the saved model path can be easily **loaded on the Evaluation page**.
+
+6) **Integration with `main.py`**
+   - Add import/register page:
+     ```python
+     from pages.page_finetune import PageFineTune
+     self.pages["FineTune"] = PageFineTune(self.container)
+     ```
+   - Add a sidebar button labeled **“Fine-Tune”**.
+
+7) **Robustness**
+   - Validate dataset presence, handle tokenizer/model load errors gracefully, disable inputs during training, timestamp existing model names.
+
+8) **Deliverables to produce now**
+   - Full file `pages/page_finetune.py`.
+   - The **new** `train_transformer_finetune(...)` function in `models/model_trainer.py`.
+   - Patch to `main.py` for import and sidebar button.
+
+9) **Quality bar**
+   - Clean, commented, educational code.
+   - Thread-safe UI updates via `after(...)`.
+   - Follow dark theme visual style.
+
+**Now generate the code for all changed/added files with clear file headers.**

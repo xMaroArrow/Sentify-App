@@ -1,0 +1,100 @@
+[2025-05-12 20:45:00]
+Another Loyalty test gone wrong 💔😂
+
+I wasn’t  expecting the end part👇
+Dominant sentiment: Negative
+  Negative: 87.83%
+  Neutral: 10.94%
+  Positive: 1.23%
+
+[2025-05-12 20:50:24]
+Another Loyalty test gone wrong 💔😂
+Dominant sentiment: Negative
+  Negative: 89.90%
+  Neutral: 9.34%
+  Positive: 0.76%
+
+[2025-05-12 20:51:03]
+Most embarrassing moments in football
+Dominant sentiment: Negative
+  Negative: 94.82%
+  Neutral: 4.74%
+  Positive: 0.43%
+
+[2025-05-12 20:51:44]
+ووسادتين وقلب يسكنه
+Dominant sentiment: Neutral
+  Negative: 20.59%
+  Neutral: 75.46%
+  Positive: 3.95%
+
+[2025-05-12 20:53:01]
+I liked what you sent before on whatsapp, it was just awesome !
+Dominant sentiment: Positive
+  Negative: 0.17%
+  Neutral: 0.92%
+  Positive: 98.92%
+
+[2025-05-12 20:53:49]
+You hated that too much !
+Dominant sentiment: Negative
+  Negative: 87.61%
+  Neutral: 10.94%
+  Positive: 1.45%
+
+[2025-05-12 20:54:23]
+I liked what you sent before on whatsapp, it was just awesome !
+Dominant sentiment: Positive
+  Negative: 0.17%
+  Neutral: 0.92%
+  Positive: 98.92%
+
+[2025-05-12 20:55:54]
+You hated that too much !
+Dominant sentiment: Negative
+  Negative: 87.61%
+  Neutral: 10.94%
+  Positive: 1.45%
+
+[2025-05-12 20:56:25]
+t was just awesome !
+Dominant sentiment: Positive
+  Negative: 0.50%
+  Neutral: 2.34%
+  Positive: 97.16%
+
+[2025-05-12 20:56:26]
+You hated that too much !
+Dominant sentiment: Negative
+  Negative: 87.61%
+  Neutral: 10.94%
+  Positive: 1.45%
+
+[2025-05-12 20:56:33]
+liked what y
+Dominant sentiment: Neutral
+  Negative: 5.90%
+  Neutral: 62.90%
+  Positive: 31.20%
+
+[2025-05-12 20:56:44]
+You hated that too much !
+Dominant sentiment: Negative
+  Negative: 87.61%
+  Neutral: 10.94%
+  Positive: 1.45%
+
+[2025-05-12 20:56:50]
+ust awesome !
+Dominant sentiment: Positive
+  Negative: 0.79%
+  Neutral: 6.15%
+  Positive: 93.07%
+
+[2025-05-12 20:56:54]
+You hated that too much !
+Dominant sentiment: Negative
+  Negative: 87.61%
+  Neutral: 10.94%
+  Positive: 1.45%
+

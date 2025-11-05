@@ -1,0 +1,35 @@
+[2025-10-18 16:42:46]
+Sentiment analysis model loaded successfully
+Dominant sentiment: Neutral
+  Negative: 1.58%
+  Neutral: 50.23%
+  Positive: 48.20%
+
+[2025-10-18 16:44:01]
+You’re in the right place. Tell us what titles or genres you’ve enjoyed in the past, and we’ll give you surprisingly insightful recommendations.
+Dominant sentiment: Positive
+  Negative: 0.32%
+  Neutral: 12.96%
+  Positive: 86.72%
+
+[2025-10-18 16:44:19]
+Chances are your friends are discussing their favorite (and least favorite) books on Goodreads.
+Dominant sentiment: Neutral
+  Negative: 2.85%
+  Neutral: 55.36%
+  Positive: 41.79%
+
+[2025-10-18 16:44:49]
+You’re in the right place. Tell us what titles or genres you’ve enjoyed in the past, and we’ll give you surprisingly insightful recommendations.
+Dominant sentiment: Positive
+  Negative: 0.32%
+  Neutral: 12.96%
+  Positive: 86.72%
+
+[2025-10-18 16:45:49]
+D:\xMaro\University Of Bahrain\AI Systems Master\Thesis\Sentify-App
+Dominant sentiment: Neutral
+  Negative: 7.06%
+  Neutral: 89.30%
+  Positive: 3.64%
+

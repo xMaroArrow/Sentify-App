@@ -172,6 +172,44 @@ class ModelTrainer:
         
         # Print model directory
         print(f"Models will be saved to: {os.path.abspath(model_dir)}")
+
+    def set_compute_device(self, preference: str = "auto"):
+        """Set compute device preference at runtime.
+
+        Args:
+            preference: 'auto', 'gpu', or 'cpu'
+        """
+        pref = (preference or "auto").lower()
+        if pref == "gpu" and torch.cuda.is_available():
+            self.device = torch.device("cuda:0")
+            # enable AMP if CUDA available
+            self.use_amp = hasattr(torch.cuda, 'amp')
+            try:
+                torch.backends.cudnn.benchmark = True
+            except Exception:
+                pass
+        elif pref == "cpu":
+            self.device = torch.device("cpu")
+            self.use_amp = False
+        else:
+            # auto: prefer GPU if present
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda:0")
+                self.use_amp = hasattr(torch.cuda, 'amp')
+            else:
+                self.device = torch.device("cpu")
+                self.use_amp = False
+        print(f"Compute device set to: {self.device} | AMP: {self.use_amp}")
+
+    def current_device_info(self) -> str:
+        """Return a human-readable device description."""
+        try:
+            if self.device and getattr(self.device, 'type', '') == 'cuda' and torch.cuda.is_available():
+                name = torch.cuda.get_device_name(0)
+                return f"cuda:0 - {name}"
+        except Exception:
+            pass
+        return "cpu"
     
     def _setup_gpu(self):
         """Configure GPU for optimal performance."""
@@ -460,7 +498,7 @@ class ModelTrainer:
         results = self._evaluate_model_on_test_data(
             model=model,
             test_loader=test_loader,
-            model_type=model_type,
+            model_type=("transformer" if model_type == "transformer" else "pytorch"),
             class_names=data_processor.class_names
         )
         eval_time = time.time() - eval_start_time
@@ -983,7 +1021,8 @@ class ModelTrainer:
         # Prepare datasets
         dataloaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size)
         train_loader = dataloaders["train"]
-        val_loader = dataloaders["val"]
+        # Use validation loader if available; otherwise fall back to test for validation curves
+        val_loader = dataloaders["val"] if dataloaders.get("val") is not None else dataloaders.get("test")
         
         # Get vocabulary size and number of classes
         vocab_size = data_processor.vocab_size
@@ -1057,7 +1096,13 @@ class ModelTrainer:
             lr_scheduler = None
         
         # Create loss function
-        criterion = nn.CrossEntropyLoss()
+        # Use class weights to handle imbalance
+        try:
+            _, class_weights = data_processor.get_class_weights()
+            class_weights = class_weights.to(self.device)
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        except Exception:
+            criterion = nn.CrossEntropyLoss()
         
         # Save hyperparameters
         hyperparams = {
@@ -1085,7 +1130,7 @@ class ModelTrainer:
         self._save_hyperparameters(model_name, hyperparams)
         
         # Train the model with advanced options
-        self._train_advanced_rnn_model(
+        self._train_advanced_model(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
@@ -1133,7 +1178,8 @@ class ModelTrainer:
         # Prepare datasets
         dataloaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size)
         train_loader = dataloaders["train"]
-        val_loader = dataloaders["val"]
+        # Use validation loader if available; otherwise fall back to test for validation curves
+        val_loader = dataloaders["val"] if dataloaders.get("val") is not None else dataloaders.get("test")
         
         # Get vocabulary size and number of classes
         vocab_size = data_processor.vocab_size
@@ -1207,7 +1253,13 @@ class ModelTrainer:
             lr_scheduler = None
         
         # Create loss function
-        criterion = nn.CrossEntropyLoss()
+        # Use class weights to handle imbalance
+        try:
+            _, class_weights = data_processor.get_class_weights()
+            class_weights = class_weights.to(self.device)
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        except Exception:
+            criterion = nn.CrossEntropyLoss()
         
         # Save hyperparameters
         hyperparams = {
@@ -1827,7 +1879,9 @@ class ModelTrainer:
                     batch_acc = (predicted == labels).sum().item() / labels.size(0)
                     curr_lr = optimizer.param_groups[0]['lr']
                     steps_info = f"(Opt step: {(batch_idx + 1) // gradient_accumulation_steps})" if gradient_accumulation_steps > 1 else ""
-                    print(f"Epoch {epoch+1}/{epochs} | Batch {batch_idx+1}/{total_batches} {steps_info} | Loss: {batch_loss:.4f} | Acc: {batch_acc:.4f} | LR: {curr_lr:.6f}")
+                    # Show very small learning rates in scientific notation
+                    lr_str = f"{curr_lr:.6f}" if abs(curr_lr) >= 1e-3 else f"{curr_lr:.2e}"
+                    print(f"Epoch {epoch+1}/{epochs} | Batch {batch_idx+1}/{total_batches} {steps_info} | Loss: {batch_loss:.4f} | Acc: {batch_acc:.4f} | LR: {lr_str}")
             
             # Calculate training metrics
             train_loss = running_loss / total_batches
@@ -2314,7 +2368,7 @@ class ModelTrainer:
         return val_loss, val_acc
     
     def _validate_transformer_model(self, model: nn.Module, val_loader: DataLoader, 
-                                   criterion: nn.Module) -> Tuple[float, float]:
+                                   criterion: nn.Module, use_fp16: Optional[bool] = None) -> Tuple[float, float]:
         """
         Validate transformer model performance with GPU optimization.
         
@@ -2338,7 +2392,9 @@ class ModelTrainer:
                 labels = batch[2].to(self.device)
                 
                 # Use mixed precision if available
-                if self.use_amp:
+                # prefer explicit flag if provided, else trainer setting
+                use_amp = self.use_amp if use_fp16 is None else bool(use_fp16)
+                if use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = model(input_ids, attention_mask=attention_mask)
                         loss = criterion(outputs.logits, labels)
@@ -2434,6 +2490,119 @@ class ModelTrainer:
                     models.append(item)
         
         return models
+
+    def train_transformer_finetune(self,
+                                   data_processor: 'DataProcessor',
+                                   model_name: str,
+                                   pretrained_model: str,
+                                   max_length: int = 128,
+                                   batch_size: int = 16,
+                                   lr: float = 2e-5,
+                                   weight_decay: float = 0.01,
+                                   warmup_ratio: float = 0.1,
+                                   epochs: int = 3,
+                                   freeze_base: bool = False,
+                                   unfreeze_last_n_layers: int = 0,
+                                   use_amp: bool = True,
+                                   class_weighting: bool = True,
+                                   early_stopping_patience: int = 2,
+                                   val_metric: str = "f1_macro",
+                                   checkpoint_every: int = 1,
+                                   grad_clip_max_norm: float = 1.0,
+                                   seed: int = 42,
+                                   callbacks: Optional[Dict[str, Callable]] = None) -> Dict:
+        """Fine-tune a transformer using existing training path and return evaluation results.
+
+        This wraps `train_transformer` with computed warmup_steps and relays progress via callbacks.
+        """
+        # Relay callbacks into existing callback system
+        cb = callbacks or {}
+
+        def _on_epoch_end(epoch, total_epochs, metrics):
+            if 'on_epoch_end' in cb and callable(cb['on_epoch_end']):
+                hist_ep = {
+                    'epoch': epoch + 1,
+                    'train_loss': metrics.get('loss', None),
+                    'val_loss': metrics.get('val_loss', None),
+                    'val_accuracy': metrics.get('val_accuracy', None),
+                    'accuracy': metrics.get('accuracy', None),
+                    'learning_rate': metrics.get('learning_rate', None),
+                }
+                cb['on_epoch_end'](epoch, hist_ep)
+
+        def _on_training_start(total_epochs, total_batches):
+            if 'on_log' in cb and callable(cb['on_log']):
+                cb['on_log'](f"Training started: {total_epochs} epochs, {total_batches} batches/epoch")
+
+        def _on_training_end(mname, metrics, training_time):
+            if 'on_log' in cb and callable(cb['on_log']):
+                cb['on_log'](f"Training completed in {training_time:.2f}s")
+
+        def _on_batch_end(batch, total_batches, epoch, total_epochs):
+            # Reduce chatter
+            pass
+
+        self.set_callbacks({
+            'on_epoch_end': _on_epoch_end,
+            'on_training_start': _on_training_start,
+            'on_training_end': _on_training_end,
+            'on_batch_end': _on_batch_end,
+        })
+
+        # Seed
+        try:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+        except Exception:
+            pass
+
+        # Prepare loaders once to compute warmup steps
+        loaders = data_processor.prepare_pytorch_datasets(batch_size=batch_size,
+                                                          tokenizer_name=pretrained_model,
+                                                          max_length=max_length)
+        steps_per_epoch = max(1, len(loaders['train']))
+        warmup_steps = int(warmup_ratio * steps_per_epoch * max(1, epochs))
+
+        # Call existing transformer trainer
+        self.train_transformer(
+            data_processor=data_processor,
+            model_name=model_name,
+            pretrained_model=pretrained_model,
+            finetune=True,
+            freeze_layers=0,  # advanced freezing not mapped in this wrapper
+            dropout=0.1,
+            attention_dropout=0.1,
+            classifier_dropout=0.1,
+            hidden_dropout=0.1,
+            batch_size=batch_size,
+            lr=lr,
+            weight_decay=weight_decay,
+            warmup_steps=warmup_steps,
+            epochs=epochs,
+            optimizer="AdamW",
+            scheduler="linear",
+            max_seq_length=max_length,
+            gradient_accumulation_steps=1,
+            fp16_training=bool(use_amp and self.use_amp),
+            clip_grad=True,
+            max_grad_norm=grad_clip_max_norm,
+        )
+
+        # Ensure tokenizer files are saved into the model directory for later evaluation
+        try:
+            from transformers import AutoTokenizer
+            model_path = os.path.join(self.model_dir, model_name)
+            tok = AutoTokenizer.from_pretrained(pretrained_model)
+            tok.save_pretrained(model_path)
+        except Exception:
+            pass
+
+        # Evaluate once and return
+        results = self.evaluate_model(model_name=model_name, data_processor=data_processor)
+        if 'on_finished' in cb and callable(cb['on_finished']):
+            cb['on_finished'](results)
+        return results
     
     def evaluate_model(self, model_name: str, data_processor: DataProcessor) -> Dict:
         """
@@ -2476,29 +2645,118 @@ class ModelTrainer:
                 hyperparams = json.load(f)
             print("Loaded hyperparameters")
         
+        # If prior evaluation results are available, load and return (skip recompute)
+        prior_results_path = os.path.join(model_path, "evaluation_results.json")
+        if os.path.exists(prior_results_path):
+            try:
+                with open(prior_results_path, "r") as f:
+                    cached = json.load(f)
+                # Attach auxiliary metadata if available
+                cached["model_name"] = model_name
+                cached["model_type"] = metadata.get("model_type", cached.get("model_type", "pytorch"))
+                print(f"Loaded cached evaluation results from {prior_results_path}")
+                return cached
+            except Exception as _:
+                # Fall back to full evaluation if cache cannot be read
+                pass
+
         # Load model
         print(f"Loading model from {model_path}...")
-        if model_type == "pytorch":
-            # For PyTorch models, we need to re-create the model architecture
-            if hyperparams and "model_type" in hyperparams:
-                if hyperparams["model_type"] == "lstm":
-                    model = self._load_lstm_model(model_path, data_processor, hyperparams)
-                elif hyperparams["model_type"] == "cnn":
-                    model = self._load_cnn_model(model_path, data_processor, hyperparams)
+        if model_type == "transformer":
+            # For transformer models, try local dir first; if missing weights, fall back to HF ID
+            is_pretrained_eval = metadata.get("is_pretrained_evaluation", False)
+            pretrained_id = metadata.get("pretrained_model")
+            num_classes = len(data_processor.class_names)
+            try:
+                if not is_pretrained_eval:
+                    # Attempt to load from local directory
+                    model = AutoModelForSequenceClassification.from_pretrained(model_path)
+                    print("Loaded transformer model from local directory")
                 else:
-                    raise ValueError(f"Unknown PyTorch model type: {hyperparams['model_type']}")
-            else:
-                # Try to infer model type from name
-                if "lstm" in model_name.lower():
-                    model = self._load_lstm_model(model_path, data_processor)
-                elif "cnn" in model_name.lower():
-                    model = self._load_cnn_model(model_path, data_processor)
-                else:
-                    raise ValueError(f"Could not determine model type for {model_name}")
+                    raise RuntimeError("Pretrained-eval entry has no local weights; loading from Hugging Face")
+            except Exception as e:
+                if not pretrained_id:
+                    raise
+                # Load from Hugging Face using recorded model ID with label count override
+                print(f"Falling back to Hugging Face model: {pretrained_id} ({e})")
+                try:
+                    from transformers import AutoConfig
+                    config = AutoConfig.from_pretrained(pretrained_id)
+                    _orig = getattr(config, "num_labels", -1)
+                    print(f"Original HF num_labels={_orig}, overriding to {num_classes}")
+                    config.num_labels = num_classes
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        pretrained_id,
+                        config=config,
+                        ignore_mismatched_sizes=True
+                    )
+                except Exception as e2:
+                    # Final fallback
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        pretrained_id,
+                        num_labels=num_classes,
+                        ignore_mismatched_sizes=True
+                    )
+                    print(f"Loaded HF model with direct num_labels override ({e2})")
         else:
-            # For transformer models, we can load directly with from_pretrained
-            model = AutoModelForSequenceClassification.from_pretrained(model_path)
-            print("Loaded transformer model")
+            # PyTorch family (LSTM/CNN/advanced variants)
+            arch = None
+            if hyperparams and "model_type" in hyperparams:
+                arch = hyperparams["model_type"]
+            else:
+                # If metadata stored advanced type, prefer it
+                if model_type in ("lstm", "cnn", "advanced_rnn", "advanced_cnn"):
+                    arch = model_type
+                else:
+                    if "lstm" in model_name.lower():
+                        arch = "lstm"
+                    elif "cnn" in model_name.lower():
+                        arch = "cnn"
+
+            # If still unknown, try to infer from checkpoint keys
+            if arch is None:
+                sd_path = os.path.join(model_path, "model.pt")
+                if os.path.exists(sd_path):
+                    try:
+                        state_dict = torch.load(sd_path, map_location=self.device)
+                        if any(k.startswith("convs.") for k in state_dict.keys()):
+                            arch = "advanced_cnn"
+                        elif any(k.startswith("rnn.") or k.startswith("lstm.") for k in state_dict.keys()):
+                            arch = "advanced_rnn"
+                    except Exception:
+                        pass
+
+            def _load_by_arch(a: str):
+                if a == "lstm":
+                    return self._load_lstm_model(model_path, data_processor, hyperparams)
+                if a == "cnn":
+                    return self._load_cnn_model(model_path, data_processor, hyperparams)
+                if a == "advanced_rnn":
+                    return self._load_advanced_rnn_model(model_path, data_processor, hyperparams)
+                if a == "advanced_cnn":
+                    return self._load_advanced_cnn_model(model_path, data_processor, hyperparams)
+                raise ValueError(f"Unknown PyTorch model type: {a}")
+
+            try:
+                model = _load_by_arch(arch)
+            except (RuntimeError, ValueError) as e:
+                # Try alternative arch if mismatch between saved weights and chosen arch
+                sd_path = os.path.join(model_path, "model.pt")
+                alt = None
+                if os.path.exists(sd_path):
+                    try:
+                        state_dict = torch.load(sd_path, map_location=self.device)
+                        if any(k.startswith("convs.") for k in state_dict.keys()):
+                            alt = "advanced_cnn"
+                        elif any(k.startswith("rnn.") or k.startswith("lstm.") for k in state_dict.keys()):
+                            alt = "advanced_rnn"
+                    except Exception:
+                        pass
+                if alt and alt != arch:
+                    print(f"Architecture mismatch detected, retrying load as {alt}")
+                    model = _load_by_arch(alt)
+                else:
+                    raise
         
         # Move model to device
         model.to(self.device)
@@ -2506,14 +2764,16 @@ class ModelTrainer:
         
         # Prepare test data
         print("Preparing test data...")
-        if model_type == "pytorch":
-            dataloaders = data_processor.prepare_pytorch_datasets(batch_size=32)
-        else:
+        if model_type == "transformer":
+            # Use the correct tokenizer source: local dir if present, otherwise HF ID
+            tokenizer_name = metadata.get("pretrained_model") if metadata.get("is_pretrained_evaluation", False) else os.path.join(model_path)
             dataloaders = data_processor.prepare_pytorch_datasets(
                 batch_size=32,
-                tokenizer_name=os.path.join(model_path),
+                tokenizer_name=tokenizer_name,
                 max_length=128
             )
+        else:
+            dataloaders = data_processor.prepare_pytorch_datasets(batch_size=32)
         
         test_loader = dataloaders["test"]
         print(f"Test data prepared, {len(test_loader)} batches")
@@ -2543,6 +2803,26 @@ class ModelTrainer:
         print("Class-wise metrics:")
         for i, class_name in enumerate(results["classes"]):
             print(f"  {class_name}: Precision={results['precision'][i]:.4f}, Recall={results['recall'][i]:.4f}, F1={results['f1'][i]:.4f}")
+        
+        # Save evaluation so future runs can load without recomputing
+        try:
+            results_path = os.path.join(model_path, "evaluation_results.json")
+            serializable_results = {}
+            for k, v in results.items():
+                if isinstance(v, np.ndarray):
+                    serializable_results[k] = v.tolist()
+                elif isinstance(v, dict):
+                    serializable_results[k] = {
+                        sk: (sv.tolist() if isinstance(sv, np.ndarray) else sv)
+                        for sk, sv in v.items()
+                    }
+                else:
+                    serializable_results[k] = v
+            with open(results_path, "w") as f:
+                json.dump(serializable_results, f, indent=2)
+            print(f"Saved evaluation to {results_path}")
+        except Exception as e:
+            print(f"Warning: failed to save evaluation results: {e}")
         
         return results
     
@@ -2770,6 +3050,8 @@ class ModelTrainer:
             "recall_curve": pr_recall,
             "average_precision": average_precision,
             "classes": class_names_list,
+            "y_true": all_labels.tolist(),
+            "y_pred": all_preds.tolist(),
             "inference_time": {
                 "average_batch_time": avg_inference_time,
                 "samples_per_second": samples_per_second,

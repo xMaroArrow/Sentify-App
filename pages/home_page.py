@@ -344,7 +344,7 @@ giving you valuable insights into how people feel about your products, services,
         github_button = ctk.CTkButton(
             links_frame,
             text="View on GitHub",
-            command=lambda: self._open_browser("https://github.com/yourusername/sentify"),
+            command=lambda: self._open_browser("https://github.com/xMaroArrow/Sentify-App"),
             width=150,
             height=30,
             font=("Arial", 12)
@@ -355,7 +355,7 @@ giving you valuable insights into how people feel about your products, services,
         feedback_button = ctk.CTkButton(
             links_frame,
             text="Provide Feedback",
-            command=lambda: self._open_browser("mailto:youremail@example.com"),
+            command=lambda: self._open_browser("mailto:SentifyApp@gmail.com"),
             width=150,
             height=30,
             font=("Arial", 12)

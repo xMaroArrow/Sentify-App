@@ -46,8 +46,13 @@ class ModelComparisonVisualizer:
             text_color_threshold = 0.7
             main_color = "white"
         
+        # Accept list-backed matrices (JSON) by converting to numpy
+        try:
+            cm = np.array(confusion_matrix)
+        except Exception:
+            cm = confusion_matrix
         # Plot the confusion matrix
-        im = ax.imshow(confusion_matrix, interpolation='nearest', cmap=cmap)
+        im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
         
         # Add colorbar
         if fig is not None:
@@ -64,12 +69,12 @@ class ModelComparisonVisualizer:
         ax.set_ylabel('True Label', fontsize=10, color=main_color)
         
         # Add text annotations
-        thresh = confusion_matrix.max() * text_color_threshold
-        for i in range(confusion_matrix.shape[0]):
-            for j in range(confusion_matrix.shape[1]):
-                ax.text(j, i, format(confusion_matrix[i, j], 'd'),
+        thresh = cm.max() * text_color_threshold
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(int(cm[i, j])),
                         ha="center", va="center",
-                        color="white" if confusion_matrix[i, j] > thresh else "black",
+                        color="white" if cm[i, j] > thresh else "black",
                         fontsize=8)
         
         # Add grid lines
@@ -107,10 +112,21 @@ class ModelComparisonVisualizer:
         
         # Plot precision-recall curve for each class
         for i, class_name in enumerate(classes):
-            if i in precision and i in recall:
+            # Handle JSON-loaded dicts with string keys and list values
+            k_i = i if i in precision else (str(i) if str(i) in precision else None)
+            k_r = i if i in recall else (str(i) if str(i) in recall else None)
+            k_ap = i if i in average_precision else (str(i) if str(i) in average_precision else None)
+            if k_i is not None and k_r is not None:
                 color = colors[i % len(colors)] if colors else None
-                ax.plot(recall[i], precision[i], color=color, lw=2,
-                        label=f'{class_name} (AP = {average_precision[i]:.2f})')
+                pr = np.array(precision[k_i])
+                rc = np.array(recall[k_r])
+                ap_val = average_precision.get(k_ap, 0.0)
+                try:
+                    ap_val = float(ap_val)
+                except Exception:
+                    ap_val = 0.0
+                ax.plot(rc, pr, color=color, lw=2,
+                        label=f'{class_name} (AP = {ap_val:.2f})')
         
         # Add labels and grid
         ax.set_xlabel('Recall', fontsize=10, color=main_color)
@@ -153,10 +169,21 @@ class ModelComparisonVisualizer:
         
         # Plot ROC curve for each class
         for i, class_name in enumerate(classes):
-            if i in fpr and i in tpr:
+            # JSON-loaded dict may have string keys and list values
+            k_f = i if i in fpr else (str(i) if str(i) in fpr else None)
+            k_t = i if i in tpr else (str(i) if str(i) in tpr else None)
+            k_auc = i if i in roc_auc else (str(i) if str(i) in roc_auc else None)
+            if k_f is not None and k_t is not None:
                 color = colors[i % len(colors)] if colors else None
-                ax.plot(fpr[i], tpr[i], color=color, lw=2,
-                        label=f'{class_name} (AUC = {roc_auc[i]:.2f})')
+                f = np.array(fpr[k_f])
+                t = np.array(tpr[k_t])
+                auc_val = roc_auc.get(k_auc, 0.0)
+                try:
+                    auc_val = float(auc_val)
+                except Exception:
+                    auc_val = 0.0
+                ax.plot(f, t, color=color, lw=2,
+                        label=f'{class_name} (AUC = {auc_val:.2f})')
         
         # Plot diagonal line (random classifier)
         ax.plot([0, 1], [0, 1], 'k--', alpha=0.5)
@@ -200,7 +227,7 @@ class ModelComparisonVisualizer:
             header_color = "#333333"
             header_text_color = "white"
         
-        # Turn off axis
+        # Turn off axis and tighten layout to make table fit
         ax.axis('tight')
         ax.axis('off')
         
@@ -250,10 +277,16 @@ class ModelComparisonVisualizer:
         row_labels.append('Accuracy')
         rows.append([f"{accuracy:.3f}", "", "", ""])
         
+        # Shorten overly long row labels to prevent overflow
+        def _shorten(lbl, maxlen=18):
+            return (lbl[:maxlen-1] + '…') if isinstance(lbl, str) and len(lbl) > maxlen else lbl
+
+        display_row_labels = [_shorten(l) for l in row_labels]
+
         # Create table
         table = ax.table(
             cellText=rows,
-            rowLabels=row_labels,
+            rowLabels=display_row_labels,
             colLabels=columns,
             loc='center',
             cellLoc='center',
@@ -261,21 +294,44 @@ class ModelComparisonVisualizer:
         )
         
         # Style table
+        # Dynamic font sizing and scaling based on number of rows
+        n_rows = len(rows)
         table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.2, 1.5)
+        # Smaller font for many classes; keep within [7, 11]
+        base_font = 11 if publication_ready else 10
+        cell_font = max(7, min(base_font, int(base_font - max(0, n_rows - 6) * 0.4)))
+        table.set_fontsize(cell_font)
+        # Adjust vertical scale to fit more rows; narrower height for many rows
+        v_scale = 1.2 if n_rows <= 6 else max(0.7, 1.6 - 0.08 * n_rows)
+        table.scale(1.05, v_scale)
         
         # Add title
         title = f"Classification Metrics - {model_name}" if model_name else "Classification Metrics"
-        ax.set_title(title, fontsize=12, color=main_color, pad=20)
+        ax.set_title(title, fontsize=12, color=main_color, pad=10)
         
         # Style cells
-        for (row, col), cell in table.get_celld().items():
+        cells = table.get_celld()
+        for (row, col), cell in cells.items():
             cell.set_edgecolor(grid_color)
-            if row == 0:  # Header
+            # Header row is row 0 in matplotlib tables
+            if row == 0:
                 cell.set_text_props(weight='bold', color=header_text_color)
             else:
                 cell.set_text_props(color=main_color)
+            # Left-align row labels (col == -1)
+            if col == -1:
+                cell._loc = 'left'
+                cell.PAD = 0.02
+        
+        # Give extra room on the left for row labels and tighten
+        try:
+            fig.subplots_adjust(left=0.25, right=0.98, top=0.88, bottom=0.05)
+        except Exception:
+            pass
+        try:
+            fig.tight_layout()
+        except Exception:
+            pass
     
     def plot_metrics_comparison(self, fig, ax, model_names: List[str],
                                accuracy: List[float], precision: List[float],
@@ -470,3 +526,86 @@ class ModelComparisonVisualizer:
         
         # Add a horizontal line at accuracy = 1.0
         ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+
+    def plot_loss_history_comparison(self, fig, ax, histories: Dict,
+                                     title: str = "Loss Curves Comparison",
+                                     publication_ready: bool = True):
+        """Plot training/validation loss across multiple models for comparison."""
+        if publication_ready:
+            main_color = "black"
+            grid_alpha = 0.3
+        else:
+            main_color = "white"
+            grid_alpha = 0.2
+
+        # Determine max epochs to set x-axis
+        max_epochs = 0
+        for hist in histories.values():
+            max_epochs = max(max_epochs, len(hist.get('loss', [])))
+        epochs = range(1, max_epochs + 1) if max_epochs else []
+
+        # Plot each model's loss
+        for name, hist in histories.items():
+            tr = hist.get('loss', [])
+            vl = hist.get('val_loss', [])
+            if tr:
+                ax.plot(range(1, len(tr)+1), tr, label=f"{name} (train)", linestyle='-', marker='o')
+            if vl:
+                ax.plot(range(1, len(vl)+1), vl, label=f"{name} (val)", linestyle='--', marker='s')
+
+        ax.set_xlabel('Epoch', fontsize=10, color=main_color)
+        ax.set_ylabel('Loss', fontsize=10, color=main_color)
+        ax.set_title(title, fontsize=12, color=main_color)
+        if max_epochs and max_epochs <= 20:
+            ax.set_xticks(list(epochs))
+        ax.grid(alpha=grid_alpha)
+        ax.legend(loc='best', fontsize=8)
+
+    def plot_loss_curves(self, fig, ax, history: Dict,
+                         title: str = "Training and Validation Loss",
+                         publication_ready: bool = True):
+        """Plot training and validation loss curves."""
+        if publication_ready:
+            main_color = "black"
+            grid_alpha = 0.3
+        else:
+            main_color = "white"
+            grid_alpha = 0.2
+        losses = history.get('loss', []) or history.get('train_loss', [])
+        val_losses = history.get('val_loss', [])
+        epochs = range(1, len(losses) + 1)
+        ax.plot(epochs, losses, 'o-', label='Train Loss')
+        if val_losses:
+            ax.plot(epochs, val_losses, 's--', label='Val Loss')
+        ax.set_xlabel('Epoch', fontsize=10, color=main_color)
+        ax.set_ylabel('Loss', fontsize=10, color=main_color)
+        ax.set_title(title, fontsize=12, color=main_color)
+        ax.grid(alpha=grid_alpha)
+        ax.legend(loc='best', fontsize=8)
+        if len(epochs) <= 20:
+            ax.set_xticks(epochs)
+
+    def plot_word_cloud(self, fig, ax, texts: List[str],
+                        title: str = "Word Cloud",
+                        publication_ready: bool = True,
+                        max_words: int = 200):
+        """Plot a word cloud from a list of texts."""
+        try:
+            from wordcloud import WordCloud
+        except Exception as e:
+            ax.text(0.5, 0.5, "Install 'wordcloud' to view\nword cloud visualization",
+                    ha='center', va='center', fontsize=12, color='red')
+            ax.set_axis_off()
+            return
+        text_blob = " ".join(texts) if texts else ""
+        if not text_blob.strip():
+            ax.text(0.5, 0.5, "No text available for word cloud",
+                    ha='center', va='center', fontsize=12)
+            ax.set_axis_off()
+            return
+        bg = 'white' if publication_ready else 'black'
+        wc = WordCloud(width=800, height=400, background_color=bg,
+                       max_words=max_words, collocations=False).generate(text_blob)
+        ax.imshow(wc, interpolation='bilinear')
+        ax.set_title(title, fontsize=12, color=('black' if publication_ready else 'white'))
+        ax.axis('off')

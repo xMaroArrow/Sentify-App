@@ -1,8 +1,9 @@
-# pages/page5.py
+﻿# pages/page5.py
 import customtkinter as ctk
 import threading
 import os
 import time
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -380,9 +381,11 @@ class Page5(ctk.CTkFrame):
         # Create a grid of LSTM parameters
         params = [
             ("LSTM Layers:", "lstm_layers", ["1", "2", "3"], "2"),
-            ("Hidden Size:", "lstm_hidden_size", ["64", "128", "256", "512"], "256"),
+            ("Hidden Size:", "lstm_hidden_size", ["128", "256", "384", "512"], "256"),
             ("Embedding Dim:", "lstm_embedding_dim", ["100", "200", "300"], "300"),
-            ("Dropout Rate:", "lstm_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.3")
+            ("Dropout Rate:", "lstm_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5"),
+            ("RNN Type:", "lstm_rnn_type", ["LSTM", "GRU"], "LSTM"),
+            ("Embedding Dropout:", "lstm_embedding_dropout", ["0.0", "0.1", "0.2", "0.3", "0.5"], "0.2")
         ]
         
         self.lstm_params = {}
@@ -404,14 +407,22 @@ class Page5(ctk.CTkFrame):
             )
             menu.grid(row=i, column=1, padx=10, pady=5, sticky="w")
         
-        # Add bidirectional LSTM option
+        # Add bidirectional and attention options
         self.lstm_bidirectional = ctk.BooleanVar(value=True)
         bidirectional_check = ctk.CTkCheckBox(
             lstm_config_frame,
-            text="Bidirectional LSTM",
+            text="Bidirectional",
             variable=self.lstm_bidirectional
         )
-        bidirectional_check.grid(row=len(params), column=0, columnspan=2, padx=10, pady=5, sticky="w")
+        bidirectional_check.grid(row=len(params), column=0, padx=10, pady=5, sticky="w")
+
+        self.lstm_use_attention = ctk.BooleanVar(value=True)
+        attention_check = ctk.CTkCheckBox(
+            lstm_config_frame,
+            text="Use Attention",
+            variable=self.lstm_use_attention
+        )
+        attention_check.grid(row=len(params), column=1, padx=10, pady=5, sticky="w")
         
         # CNN models tab
         cnn_tab = self.model_tabview.tab("CNN")
@@ -423,9 +434,12 @@ class Page5(ctk.CTkFrame):
         # Create a grid of CNN parameters
         cnn_params = [
             ("Filter Sizes:", "cnn_filter_sizes", ["[3,4,5]", "[2,3,4]", "[1,2,3,4,5]"], "[3,4,5]"),
-            ("Num Filters:", "cnn_num_filters", ["100", "200", "300"], "100"),
+            ("Num Filters:", "cnn_num_filters", ["100", "200", "300"], "200"),
             ("Embedding Dim:", "cnn_embedding_dim", ["100", "200", "300"], "300"),
-            ("Dropout Rate:", "cnn_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5")
+            ("Dropout Rate:", "cnn_dropout", ["0.1", "0.2", "0.3", "0.5"], "0.5"),
+            ("Embedding Dropout:", "cnn_embedding_dropout", ["0.0", "0.1", "0.2", "0.3", "0.5"], "0.2"),
+            ("Activation:", "cnn_activation", ["relu", "leaky_relu", "tanh", "elu"], "relu"),
+            ("Pooling:", "cnn_pool_type", ["max", "avg", "adaptive"], "max")
         ]
         
         self.cnn_params = {}
@@ -447,6 +461,15 @@ class Page5(ctk.CTkFrame):
             )
             menu.grid(row=i, column=1, padx=10, pady=5, sticky="w")
         
+        # Add BatchNorm option (checkbox below the grid)
+        self.cnn_batch_norm = ctk.BooleanVar(value=True)
+        batchnorm_check = ctk.CTkCheckBox(
+            cnn_config_frame,
+            text="Batch Normalization",
+            variable=self.cnn_batch_norm
+        )
+        batchnorm_check.grid(row=len(cnn_params), column=0, columnspan=2, padx=10, pady=5, sticky="w")
+
         # Custom models tab
         custom_tab = self.model_tabview.tab("Custom")
         
@@ -549,13 +572,42 @@ class Page5(ctk.CTkFrame):
         
         # Create a grid for training parameters
         train_params = [
-            ("Batch Size:", "batch_size", ["8", "16", "32", "64"], "32"),
-            ("Learning Rate:", "learning_rate", ["0.001", "0.0005", "0.0001"], "0.001"),
+            ("Batch Size:", "batch_size", ["16", "32", "64"], "32"),
+            ("Learning Rate:", "learning_rate", ["0.001", "0.0005", "0.0001"], "0.0005"),
             ("Epochs:", "epochs", ["3", "5", "10", "20"], "5"),
-            ("Optimizer:", "optimizer", ["Adam", "AdamW", "SGD"], "Adam")
+            ("Optimizer:", "optimizer", ["Adam", "AdamW", "SGD", "RMSprop"], "AdamW"),
+            ("Weight Decay:", "weight_decay", ["0.0", "0.0001", "0.0005", "0.001"], "0.0001"),
+            ("Scheduler:", "scheduler", ["none", "step", "cosine", "plateau"], "plateau"),
+            ("Clip Gradients:", "clip_grad", ["True", "False"], "True"),
+            ("Max Grad Norm:", "max_grad_norm", ["0.5", "1.0", "2.0", "5.0"], "1.0")
         ]
         
         self.train_params = {}
+        # Device selection and indicator
+        device_row = ctk.CTkFrame(training_frame)
+        device_row.pack(fill="x", padx=10, pady=(0, 5))
+        ctk.CTkLabel(device_row, text="Compute Device:", font=("Arial", 13)).pack(side="left", padx=6)
+        self.device_pref_var = ctk.StringVar(value="Auto")
+        ctk.CTkOptionMenu(device_row, values=["Auto", "GPU", "CPU"], variable=self.device_pref_var,
+                          command=self._on_device_change, width=100).pack(side="left", padx=6)
+        self.device_info_label = ctk.CTkLabel(device_row, text=f"Device: {self.model_trainer.current_device_info()}")
+        self.device_info_label.pack(side="left", padx=10)
+        # Manual overrides (optional)
+        manual_frame = ctk.CTkFrame(training_frame)
+        manual_frame.pack(fill="x", padx=10, pady=(0, 5))
+        manual_title = ctk.CTkLabel(manual_frame, text="Manual Overrides (optional)", font=("Arial", 13, "bold"))
+        manual_title.grid(row=0, column=0, columnspan=6, padx=10, pady=(8, 2), sticky="w")
+
+        self.manual_batch_size = ctk.StringVar(value="")
+        self.manual_learning_rate = ctk.StringVar(value="")
+        self.manual_epochs = ctk.StringVar(value="")
+
+        ctk.CTkLabel(manual_frame, text="Batch Size:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_batch_size, width=100, placeholder_text="e.g. 48").grid(row=1, column=1, padx=5, pady=5)
+        ctk.CTkLabel(manual_frame, text="Learning Rate:").grid(row=1, column=2, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_learning_rate, width=120, placeholder_text="e.g. 0.0003").grid(row=1, column=3, padx=5, pady=5)
+        ctk.CTkLabel(manual_frame, text="Epochs:").grid(row=1, column=4, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(manual_frame, textvariable=self.manual_epochs, width=100, placeholder_text="e.g. 12").grid(row=1, column=5, padx=5, pady=5)
         
         for i, (label_text, param_name, options, default) in enumerate(train_params):
             label = ctk.CTkLabel(
@@ -729,7 +781,14 @@ class Page5(ctk.CTkFrame):
         viz_label.pack(side="left", padx=10, pady=5)
         
         self.viz_type_var = ctk.StringVar(value="Confusion Matrix")
-        viz_options = ["Confusion Matrix", "Precision-Recall Curve", "ROC Curve", "Metrics Table"]
+        viz_options = [
+            "Confusion Matrix",
+            "Precision-Recall Curve",
+            "ROC Curve",
+            "Metrics Table",
+            "Loss Curve",
+            "Word Cloud"
+        ]
         viz_menu = ctk.CTkOptionMenu(
             viz_frame,
             values=viz_options,
@@ -1004,7 +1063,7 @@ class Page5(ctk.CTkFrame):
         compare_all_button.pack(side="left", padx=10, pady=10)
         
         # Model selection for comparison
-        model_select_frame = ctk.CTkFrame(compare_frame)  # This was missing or misnamed
+        model_select_frame = ctk.CTkFrame(compare_frame)
         model_select_frame.pack(fill="x", padx=10, pady=5)
         
         select_label = ctk.CTkLabel(
@@ -1015,7 +1074,8 @@ class Page5(ctk.CTkFrame):
         select_label.pack(pady=5, padx=10, anchor="w")
         
         # Checkboxes will be added dynamically once models are trained
-        self.model_checkboxes_frame = ctk.CTkFrame(model_select_frame)
+        # Use a scrollable frame to ensure all models are visible
+        self.model_checkboxes_frame = ctk.CTkScrollableFrame(model_select_frame, height=140)
         self.model_checkboxes_frame.pack(fill="x", padx=10, pady=5)
         
         self.model_checkbox_vars = {}
@@ -1046,7 +1106,8 @@ class Page5(ctk.CTkFrame):
             "Confusion Matrices", 
             "ROC Curves", 
             "Precision-Recall Curves",
-            "Training History"
+            "Training History",
+            "Loss Curves"
         ]
         compare_type_menu = ctk.CTkOptionMenu(
             compare_type_frame,
@@ -1365,6 +1426,33 @@ class Page5(ctk.CTkFrame):
         training_params['batch_size'] = int(training_params['batch_size'])
         training_params['epochs'] = int(training_params['epochs'])
         training_params['learning_rate'] = float(training_params['learning_rate'])
+        training_params['weight_decay'] = float(training_params.get('weight_decay', 0.0))
+        # Boolean for clip_grad
+        cg = training_params.get('clip_grad', 'True')
+        training_params['clip_grad'] = True if str(cg).lower() == 'true' else False
+        training_params['max_grad_norm'] = float(training_params.get('max_grad_norm', 1.0))
+        # Apply manual overrides if provided and valid
+        try:
+            if self.manual_batch_size.get().strip():
+                mb = int(float(self.manual_batch_size.get().strip()))
+                if mb > 0:
+                    training_params['batch_size'] = mb
+        except Exception:
+            pass
+        try:
+            if self.manual_learning_rate.get().strip():
+                mlr = float(self.manual_learning_rate.get().strip())
+                if mlr > 0:
+                    training_params['learning_rate'] = mlr
+        except Exception:
+            pass
+        try:
+            if self.manual_epochs.get().strip():
+                me = int(float(self.manual_epochs.get().strip()))
+                if me > 0:
+                    training_params['epochs'] = me
+        except Exception:
+            pass
         
         # Get model-specific parameters
         model_params = {}
@@ -1383,6 +1471,9 @@ class Page5(ctk.CTkFrame):
             model_params['lstm_embedding_dim'] = int(model_params['lstm_embedding_dim'])
             model_params['lstm_dropout'] = float(model_params['lstm_dropout'])
             model_params['bidirectional'] = self.lstm_bidirectional.get()
+            model_params['lstm_rnn_type'] = model_params.get('lstm_rnn_type', 'LSTM')
+            model_params['lstm_embedding_dropout'] = float(model_params.get('lstm_embedding_dropout', '0.2'))
+            model_params['lstm_use_attention'] = self.lstm_use_attention.get()
             
         elif model_type == "CNN":
             model_params = {
@@ -1394,6 +1485,10 @@ class Page5(ctk.CTkFrame):
             model_params['cnn_num_filters'] = int(model_params['cnn_num_filters'])
             # Parse filter sizes string to actual list
             model_params['cnn_filter_sizes'] = eval(model_params['cnn_filter_sizes'])
+            model_params['cnn_embedding_dropout'] = float(model_params.get('cnn_embedding_dropout', '0.2'))
+            model_params['cnn_activation'] = model_params.get('cnn_activation', 'relu')
+            model_params['cnn_pool_type'] = model_params.get('cnn_pool_type', 'max')
+            model_params['cnn_batch_norm'] = self.cnn_batch_norm.get()
         
         # Reset progress bar and log
         self.progress_bar.set(0)
@@ -1445,10 +1540,17 @@ class Page5(ctk.CTkFrame):
                     embedding_dim=model_params['lstm_embedding_dim'],
                     dropout=model_params['lstm_dropout'],
                     bidirectional=model_params['bidirectional'],
+                    rnn_type=model_params['lstm_rnn_type'],
                     batch_size=training_params['batch_size'],
                     lr=training_params['learning_rate'],
+                    weight_decay=training_params['weight_decay'],
                     epochs=training_params['epochs'],
-                    optimizer=training_params['optimizer']
+                    optimizer=training_params['optimizer'],
+                    scheduler=training_params.get('scheduler', 'none'),
+                    embedding_dropout=model_params['lstm_embedding_dropout'],
+                    use_attention=model_params['lstm_use_attention'],
+                    clip_grad=training_params['clip_grad'],
+                    max_grad_norm=training_params['max_grad_norm']
                 )
             
             elif model_type == "CNN":
@@ -1459,10 +1561,18 @@ class Page5(ctk.CTkFrame):
                     num_filters=model_params['cnn_num_filters'],
                     embedding_dim=model_params['cnn_embedding_dim'],
                     dropout=model_params['cnn_dropout'],
+                    embedding_dropout=model_params['cnn_embedding_dropout'],
+                    activation=model_params['cnn_activation'],
+                    batch_norm=model_params['cnn_batch_norm'],
+                    pool_type=model_params['cnn_pool_type'],
                     batch_size=training_params['batch_size'],
                     lr=training_params['learning_rate'],
+                    weight_decay=training_params['weight_decay'],
                     epochs=training_params['epochs'],
-                    optimizer=training_params['optimizer']
+                    optimizer=training_params['optimizer'],
+                    scheduler=training_params.get('scheduler', 'none'),
+                    clip_grad=training_params['clip_grad'],
+                    max_grad_norm=training_params['max_grad_norm']
                 )
             
             # Update model list for evaluation
@@ -1484,8 +1594,16 @@ class Page5(ctk.CTkFrame):
         progress = (epoch + 1) / total_epochs
         self.after(0, lambda: self.progress_bar.set(progress))
         
-        # Format metrics string
-        metrics_str = ", ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
+        # Format metrics string (use scientific notation for very small values like LR)
+        def _fmt(v):
+            try:
+                v = float(v)
+                if abs(v) < 1e-3:
+                    return f"{v:.2e}"
+                return f"{v:.4f}"
+            except Exception:
+                return str(v)
+        metrics_str = ", ".join([f"{k}: {_fmt(v)}" for k, v in metrics.items()])
         
         # Update progress text and log
         self.after(0, lambda: self.progress_text.configure(
@@ -1572,7 +1690,7 @@ class Page5(ctk.CTkFrame):
                 text=model_name,
                 variable=var
             )
-            checkbox.pack(side="left", padx=10, pady=5)
+            checkbox.pack(side="top", anchor="w", padx=10, pady=3)
     
     def _evaluate_model(self):
         """Evaluate the selected model on the test set."""
@@ -1624,7 +1742,9 @@ class Page5(ctk.CTkFrame):
                 data_processor=self.data_processor
             )
             
-            # Store results for visualization
+            # Store results for visualization (initialize if missing)
+            if model_name not in self.model_results:
+                self.model_results[model_name] = {}
             self.model_results[model_name]['evaluation'] = result
             
             # Update visualization
@@ -1682,8 +1802,8 @@ class Page5(ctk.CTkFrame):
             self.visualizer.plot_precision_recall_curve(
                 fig=fig,
                 ax=ax,
-                precision=result['precision'],
-                recall=result['recall'],
+                precision=result['precision_curve'],
+                recall=result['recall_curve'],
                 average_precision=result['average_precision'],
                 classes=result['classes'],
                 title=f"Precision-Recall Curve - {model_name}",
@@ -1712,10 +1832,51 @@ class Page5(ctk.CTkFrame):
                 publication_ready=publication_ready
             )
         
+        elif viz_type == "Loss Curve":
+            history = result.get('history') or self.model_results.get(model_name, {}).get('history')
+            if not history:
+                plt.close(fig)
+                self.viz_canvas = None
+                messagebox.showinfo("Information", "No training history available for this model.")
+                return
+            self.visualizer.plot_loss_curves(
+                fig=fig,
+                ax=ax,
+                history=history,
+                title=f"Loss Curves - {model_name}",
+                publication_ready=publication_ready
+            )
+        
+        elif viz_type == "Word Cloud":
+            texts = []
+            if hasattr(self.data_processor, 'test_data') and self.data_processor.test_data is not None:
+                texts = list(self.data_processor.test_data.get('texts', []))
+            # Prefer misclassified texts if predictions are available
+            y_true = result.get('y_true')
+            y_pred = result.get('y_pred')
+            if texts and isinstance(y_true, list) and isinstance(y_pred, list) and len(y_true) == len(texts) == len(y_pred):
+                mis_texts = [t for t, yt, yp in zip(texts, y_true, y_pred) if yt != yp]
+                if mis_texts:
+                    texts = mis_texts
+                    title = f"Word Cloud (Misclassified) - {model_name}"
+                else:
+                    title = f"Word Cloud (All Test Texts) - {model_name}"
+            else:
+                title = f"Word Cloud (All Test Texts) - {model_name}"
+            self.visualizer.plot_word_cloud(
+                fig=fig,
+                ax=ax,
+                texts=texts,
+                title=title,
+                publication_ready=publication_ready
+            )
+        
         # Create canvas with the new figure
         self.viz_canvas = FigureCanvasTkAgg(fig, master=self.viz_container)
         self.viz_canvas.draw()
         self.viz_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Detach from pyplot to prevent figure accumulation warnings
+        plt.close(fig)
     
     def _export_visualization(self):
         """Export current visualization to a file."""
@@ -1766,11 +1927,32 @@ class Page5(ctk.CTkFrame):
             messagebox.showinfo("Information", "Please select at least two models to compare.")
             return
         
-        # Check if all selected models have evaluation results
+        # Ensure evaluation results and histories are available on demand
         for model_name in selected_models:
+            # Try to load evaluation if missing (from saved files)
+            if model_name not in self.model_results:
+                self.model_results[model_name] = {}
             if 'evaluation' not in self.model_results[model_name]:
-                messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
-                return
+                try:
+                    eval_path = os.path.join(self.model_trainer.model_dir, model_name, "evaluation_results.json")
+                    if os.path.exists(eval_path):
+                        with open(eval_path, "r") as f:
+                            self.model_results[model_name]['evaluation'] = json.load(f)
+                    else:
+                        messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
+                        return
+                except Exception:
+                    messagebox.showinfo("Information", f"Please evaluate {model_name} first.")
+                    return
+            # Try to load training history if missing
+            if 'history' not in self.model_results[model_name]:
+                try:
+                    hist_path = os.path.join(self.model_trainer.model_dir, model_name, "history.json")
+                    if os.path.exists(hist_path):
+                        with open(hist_path, "r") as f:
+                            self.model_results[model_name]['history'] = json.load(f)
+                except Exception:
+                    pass
         
         # Get comparison type
         compare_type = self.compare_type_var.get()
@@ -1840,8 +2022,8 @@ class Page5(ctk.CTkFrame):
                     self.visualizer.plot_precision_recall_curve(
                         fig=None,
                         ax=axes[i],
-                        precision=result['precision'],
-                        recall=result['recall'],
+                        precision=result['precision_curve'],
+                        recall=result['recall_curve'],
                         average_precision=result['average_precision'],
                         classes=result['classes'],
                         title=model_name,
@@ -1864,10 +2046,23 @@ class Page5(ctk.CTkFrame):
             for model_name in selected_models:
                 result = self.model_results[model_name]['evaluation']
                 model_names.append(model_name)
-                accuracy.append(result['accuracy'])
-                precision.append(np.mean(result['precision'].values()))
-                recall.append(np.mean(result['recall'].values()))
-                f1.append(np.mean(result['f1'].values()))
+                accuracy.append(float(result.get('accuracy', 0.0)))
+                def _avg(d):
+                    try:
+                        if isinstance(d, dict):
+                            vals = []
+                            for v in d.values():
+                                try:
+                                    vals.append(float(v))
+                                except Exception:
+                                    pass
+                            return float(np.mean(vals)) if vals else 0.0
+                        return float(d)
+                    except Exception:
+                        return 0.0
+                precision.append(_avg(result.get('precision', {})))
+                recall.append(_avg(result.get('recall', {})))
+                f1.append(_avg(result.get('f1', {})))
             
             self.visualizer.plot_metrics_comparison(
                 fig=fig,
@@ -1919,10 +2114,30 @@ class Page5(ctk.CTkFrame):
                     publication_ready=True
                 )
         
+        elif compare_type == "Loss Curves":
+            # Compare loss curves for selected models
+            fig, ax = plt.subplots(figsize=(10, 6))
+            histories = {}
+            for model_name in selected_models:
+                if 'history' in self.model_results[model_name]:
+                    histories[model_name] = self.model_results[model_name]['history']
+            if not histories:
+                messagebox.showinfo("Information", "No training history available for selected models.")
+                return
+            self.visualizer.plot_loss_history_comparison(
+                fig=fig,
+                ax=ax,
+                histories=histories,
+                title="Loss Curves Comparison",
+                publication_ready=True
+            )
+        
         # Create canvas with the new figure
         self.compare_canvas = FigureCanvasTkAgg(fig, master=self.compare_container)
         self.compare_canvas.draw()
         self.compare_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Detach from pyplot to prevent figure accumulation warnings
+        plt.close(fig)
     
     def destroy(self):
         """Clean up resources when the page is destroyed."""
@@ -1934,3 +2149,21 @@ class Page5(ctk.CTkFrame):
         
         # Call parent's destroy method
         super().destroy()
+
+    def _on_device_change(self, choice):
+        """Handle compute device preference change (Auto/GPU/CPU)."""
+        pref = (choice or 'Auto').lower()
+        if pref == 'gpu':
+            self.model_trainer.set_compute_device('gpu')
+        elif pref == 'cpu':
+            self.model_trainer.set_compute_device('cpu')
+        else:
+            self.model_trainer.set_compute_device('auto')
+        # refresh indicator
+        try:
+            self.device_info_label.configure(text=f"Device: {self.model_trainer.current_device_info()}")
+        except Exception:
+            pass
+
+
+
