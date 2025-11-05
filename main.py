@@ -143,35 +143,29 @@ class MyApp(ctk.CTk):
         home_button = ctk.CTkButton(self.sidebar_frame, text="Home", command=lambda: self.show_page("Home"), **btn_kwargs)
         home_button.pack(pady=4, padx=10, fill="x")
 
-        page1_button = ctk.CTkButton(self.sidebar_frame, text="Page 1", command=lambda: self.show_page("Page1"), **btn_kwargs)
+        page1_button = ctk.CTkButton(self.sidebar_frame, text="Analyze", command=lambda: self.show_page("Page1"), **btn_kwargs)
         page1_button.pack(pady=4, padx=10, fill="x")
 
-        page2_button = ctk.CTkButton(self.sidebar_frame, text="Page 2", command=lambda: self.show_page("Page2"), **btn_kwargs)
+        page2_button = ctk.CTkButton(self.sidebar_frame, text="Trends", command=lambda: self.show_page("Page2"), **btn_kwargs)
         page2_button.pack(pady=4, padx=10, fill="x")
 
-        page3_button = ctk.CTkButton(self.sidebar_frame, text="Page 3", command=lambda: self.show_page("Page3"), **btn_kwargs)  
+        page3_button = ctk.CTkButton(self.sidebar_frame, text="Clipboard", command=lambda: self.show_page("Page3"), **btn_kwargs)  
         page3_button.pack(pady=4, padx=10, fill="x")
         
-        page4_button = ctk.CTkButton(self.sidebar_frame, text="Page 4", command=lambda: self.show_page("Page4"), **btn_kwargs)  
+        page4_button = ctk.CTkButton(self.sidebar_frame, text="Multilingual", command=lambda: self.show_page("Page4"), **btn_kwargs)  
         page4_button.pack(pady=4, padx=10, fill="x")
         
-        page5_button = ctk.CTkButton(self.sidebar_frame, text="Evaluation", command=lambda: self.show_page("Page5"), **btn_kwargs)  
+        page5_button = ctk.CTkButton(self.sidebar_frame, text="Training", command=lambda: self.show_page("Page5"), **btn_kwargs)  
         page5_button.pack(pady=4, padx=10, fill="x")
         
-        page6_button = ctk.CTkButton(self.sidebar_frame, text="Model Comparison", command=lambda: self.show_page("Page6"), **btn_kwargs)
-        page6_button.pack(pady=4, padx=10, fill="x")
+        # Page6 intentionally hidden from burger menu
         
         # Separator and Settings entry
         spacer = ctk.CTkLabel(self.sidebar_frame, text="")
         spacer.pack(pady=(8, 0))
         settings_button = ctk.CTkButton(self.sidebar_frame, text="Settings", command=lambda: self.show_page("Settings"), **btn_kwargs)
         settings_button.pack(pady=4, padx=10, fill="x")
-        
-        page5_button = ctk.CTkButton(self.sidebar_frame, text="Evaluation", command=lambda: self.show_page("Page5"))  
-        page5_button.pack(pady=5)
-        
-        page6_button = ctk.CTkButton(self.sidebar_frame, text="Model Comparison", command=lambda: self.show_page("Page6"))
-        page6_button.pack(pady=5)
+
 
         finetune_button = ctk.CTkButton(self.sidebar_frame, text="Fine-Tune", command=lambda: self.show_page("FineTune"))
         finetune_button.pack(pady=5)

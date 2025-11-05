@@ -28,7 +28,7 @@ class HomePage(ctk.CTkFrame):
     - Hero banner with CTA
     - Feature highlights
     - Live stats (metrics + model/system grid)
-    - Navigation grid (Page1–Page6, Settings)
+    - Navigation grid (Page1–Page5, Settings)
     - Quick Start checklist
     - Testimonials carousel (placeholder)
     - Footer (links + Release Notes)
@@ -42,6 +42,14 @@ class HomePage(ctk.CTkFrame):
             "“Sentify helped us understand our users at scale.”",
             "“Great visuals and quick insights for our team.”",
             "“Simple workflow from training to analysis.”",
+        ]
+        # Refresh steps to align with new navigation labels
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Visit Overview to analyze a sample sentence",
+            "Explore Trends to monitor a hashtag or topic",
+            "Review Reports for summaries",
+            "Export results from Exports when ready",
         ]
         self._testimonial_idx = 0
 
@@ -91,7 +99,7 @@ class HomePage(ctk.CTkFrame):
             pass
 
         # Call‑to‑action
-        cta = ctk.CTkButton(header, text="Analyze Your First Text", width=220,
+        cta = ctk.CTkButton(header, text="Open Analyze", width=220,
                             command=lambda: self._navigate_to_page("Page1"))
         cta.pack(pady=(4, 12))
 
@@ -192,7 +200,7 @@ class HomePage(ctk.CTkFrame):
         block = ctk.CTkFrame(self.main_container)
         block.pack(fill="x", padx=10, pady=(0, 10))
 
-        ctk.CTkLabel(block, text="Navigate", font=("Arial", 20, "bold")).pack(
+        ctk.CTkLabel(block, text="Explore", font=("Arial", 20, "bold")).pack(
             pady=(12, 6), padx=12, anchor="w"
         )
 
@@ -210,7 +218,6 @@ class HomePage(ctk.CTkFrame):
             ("Page3", "Clipboard"),
             ("Page4", "Experiments"),
             ("Page5", "Evaluation"),
-            ("Page6", "Comparison"),
         ]
         # Add Settings if present
         try:
@@ -228,8 +235,39 @@ class HomePage(ctk.CTkFrame):
                 cell.configure(border_width=1, border_color=theme.border_color())
             except Exception:
                 pass
+            display_label = {
+                "Analyze Text": "Overview",
+                "Real�?`time": "Trends",
+                "Clipboard": "Insights",
+                "Experiments": "Reports",
+                "Evaluation": "Exports",
+                "Settings": "Settings",
+            }.get(label, label)
+            # Harmonize labels with actual page purposes (robust to mojibake)
+            try:
+                raw = (label or "")
+                if "Analyze" in raw:
+                    label = "Analyze"
+                elif ("Real" in raw) or ("time" in raw):
+                    label = "Trends"
+                elif "Clipboard" in raw:
+                    label = "Clipboard"
+                elif "Experiments" in raw:
+                    label = "Multilingual"
+                elif "Evaluation" in raw:
+                    label = "Training"
+                else:
+                    label = raw
+            except Exception:
+                pass
             ctk.CTkLabel(cell, text=label, font=("Arial", 14, "bold")).pack(pady=(10, 4))
-            ctk.CTkButton(cell, text="Open", command=lambda p=page: self._navigate_to_page(p)).pack(pady=(0, 10))
+            ctk.CTkButton(
+                cell,
+                text="Open",
+                height=36,
+                corner_radius=10,
+                command=lambda p=page: self._navigate_to_page(p),
+            ).pack(pady=(0, 10))
 
     # -------------------- Quick Start --------------------
     def _create_quick_start(self):
@@ -242,10 +280,19 @@ class HomePage(ctk.CTkFrame):
 
         steps = [
             "Open Settings and choose a model (Hugging Face or Local)",
-            "Go to Analyze Text and paste a sample sentence",
+            "Visit Overview to analyze a sample sentence",
             "Check the sentiment distribution and details",
+            "Review Reports for summaries",
             "Try Real‑time Monitoring with a hashtag",
             "Optional: Fine‑tune on your dataset",
+        ]
+        # Align steps with the updated navigation
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Go to Analyze to test a sample sentence",
+            "Use Trends to monitor a hashtag or topic",
+            "Train and evaluate models in Training",
+            "Optional: Use Clipboard or Multilingual features",
         ]
         for i, step in enumerate(steps, 1):
             ctk.CTkLabel(block, text=f"{i}. {step}", font=("Arial", 13)).pack(padx=12, pady=2, anchor="w")
@@ -380,4 +427,3 @@ class HomePage(ctk.CTkFrame):
             return os.path.join(root, 'models')
         except Exception:
             return os.path.abspath('models')
-

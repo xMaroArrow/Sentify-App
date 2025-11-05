@@ -1,0 +1,10 @@
+display_label = {
+                "Analyze Text": "Overview",
+                "Real�?`time": "Trends",
+                "Clipboard": "Insights",
+                "Experiments": "Reports",
+                "Evaluation": "Exports",
+                "Settings": "Settings",
+            }.get(label, label)
+            ctk.CTkLabel(cell, text=display_label, font=("Arial", 14, "bold")).pack(pady=(10, 4))
+ 

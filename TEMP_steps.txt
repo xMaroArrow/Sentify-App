@@ -1,0 +1,6 @@
+        steps = [
+            "Open Settings and choose a model (Hugging Face or Local)",
+            "Visit Overview to analyze a sample sentence",
+            "Check the sentiment distribution and details",
+            "Review Reports for summaries",
+       
