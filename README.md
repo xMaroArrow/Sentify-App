@@ -1,94 +1,190 @@
-Sentify: Social Media Sentiment Analysis App
+# 🌐 Sentify-App: Social Media Sentiment Analysis Platform
 
-Sentify is a desktop application for analyzing sentiment in social media content with a modern CustomTkinter UI, real-time collection, multilingual models, and built-in tools to train and evaluate your own models.
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![HuggingFace](https://img.shields.io/badge/Transformers-HuggingFace-yellow.svg)](https://huggingface.co/)
+[![PyTorch](https://img.shields.io/badge/Backend-PyTorch-red.svg)](https://pytorch.org/)
+[![UI](https://img.shields.io/badge/UI-CustomTkinter-2B6CB0.svg)](https://github.com/TomSchimansky/CustomTkinter)
 
-Key capabilities:
-- Multi-source analysis: free-text, tweets, hashtags, and Reddit threads
-- Real-time tweet collection and live trend charts
-- Multilingual transformers (RoBERTa/XLM-R) with GPU support
-- Model training and evaluation (LSTM/CNN/Transformers) with rich visuals
-- Clean, responsive UI with dark/light modes
+Sentify-App is an **AI-powered desktop application** for **multilingual sentiment analysis** across social media platforms.  
+It combines **real-time tweet collection**, **HuggingFace transformers**, **deep learning model training**, and **publication-ready visualizations** — all inside a clean **CustomTkinter** graphical interface.
 
-**Features**
-- Input options:
-  - Analyze a single tweet URL or any free text
-  - Monitor hashtags in real time (Twitter/X)
-  - Fetch and analyze Reddit submissions and comments
-- Visualizations:
-  - Sentiment distribution, trends over time, confusion matrices
-  - Precision–Recall and ROC curves for model comparison
-- Model workflow:
-  - Preprocess, split datasets, and train LSTM/CNN/Transformer models
-  - Evaluate, compare, and save models with metadata
-- Practical extras:
-  - CSV export, logs, and publication-ready plots
+---
 
-**Project Structure**
+## 🚀 Key Capabilities
+
+- 💬 **Multi-source input** — Analyze free text, tweet URLs, hashtags, or Reddit threads  
+- ⚡ **Real-time monitoring** — Stream tweets and visualize sentiment trends live  
+- 🌍 **Multilingual support** — Pretrained XLM-RoBERTa models for 100+ languages  
+- 🧠 **Custom training** — Train and fine-tune LSTM, CNN, or Transformer models  
+- 📊 **Rich visualizations** — Confusion matrices, ROC & PR curves, F1/accuracy charts  
+- 🎨 **Modern GUI** — Responsive design with dark/light themes  
+
+---
+
+## 🧩 Application Pages
+
+| Page | Purpose |
+|------|----------|
+| 🏠 **Home** | Overview and project dashboard |
+| 💬 **Page 1** | Analyze text, tweets, hashtags, or accounts |
+| 📈 **Page 2** | Real-time multilingual sentiment monitoring |
+| 🔎 **Page 3** | Aspect-based sentiment and topic insights |
+| 🧪 **Page 5** | Model training, fine-tuning, and evaluation |
+| ⚖️ **Page 6** | Model comparison and visualization |
+
+---
+
+## 🧱 System Architecture
+
+```
+[ Twitter/Reddit API ] → [ Data Processor ]
+           ↓
+     [ Sentiment Analyzers ]
+ (RoBERTa / XLM-R / BERTweet)
+           ↓
+     [ Model Trainer ]
+  (LSTM, CNN, Transformers)
+           ↓
+     [ Visualizer ]
+ (Metrics, Curves, Tables)
+           ↓
+     [ CustomTkinter GUI ]
+```
+
+---
+
+## ⚙️ Installation Guide
+
+### Prerequisites
+- Python **3.9+**
+- OS with **Tkinter GUI support** (Windows/macOS/Linux)
+- Optional: CUDA-enabled GPU for PyTorch acceleration
+
+### 1️⃣ Clone and Setup
+```bash
+git clone https://github.com/YourUsername/Sentify-App.git
+cd Sentify-App
+python -m venv .venv
+source .venv/bin/activate  # or .\.venv\Scripts\activate on Windows
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2️⃣ Run the App
+```bash
+python main.py
+```
+
+---
+
+## ⚡ GPU Acceleration (Optional)
+If you have an NVIDIA GPU:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
+Verify GPU use:
+```python
+import torch
+print(torch.cuda.is_available())
+```
+
+---
+
+## 📡 API Integrations
+
+### 🐦 Twitter (X) Real-Time Streaming
+Edit your **Bearer Token** in `addons/collector.py` or set as an environment variable:
+```bash
+set BEARER_TOKEN=your_token_here
+```
+
+### 👽 Reddit Thread Analysis
+Set credentials:
+```bash
+export REDDIT_CLIENT_ID="your_id"
+export REDDIT_CLIENT_SECRET="your_secret"
+export REDDIT_USER_AGENT="SentifyApp/1.0"
+```
+
+---
+
+## 🧮 Model Training & Fine-Tuning
+
+1. Load a dataset (CSV with text + sentiment columns)
+2. Configure preprocessing (remove URLs, mentions, punctuation, etc.)
+3. Split dataset (Train/Val/Test)
+4. Choose architecture:
+   - **LSTM** (sequence-based)
+   - **CNN** (spatial text features)
+   - **Transformer** (contextual embeddings)
+5. Adjust hyperparameters (epochs, learning rate, batch size)
+6. Train, evaluate, and visualize performance  
+   *(Confusion Matrix, ROC, PR Curves, Metrics Table)*
+
+---
+
+## 📊 Visualization Examples
+
+| Metric | Example |
+|:-------|:--------|
+| Confusion Matrix | ![Confusion Matrix](docs/images/confusion_matrix.png) |
+| ROC Curve | ![ROC Curve](docs/images/roc_curve.png) |
+| Precision-Recall | ![PR Curve](docs/images/pr_curve.png) |
+
+---
+
+## 🧰 Tech Stack
+
+- 🖥 **GUI:** CustomTkinter  
+- 🤗 **NLP:** Hugging Face Transformers  
+- 🔥 **Deep Learning:** PyTorch  
+- 🧪 **ML Tools:** scikit-learn, pandas, numpy  
+- 📈 **Visualization:** matplotlib, seaborn  
+- 🐦 **Data:** Tweepy API, Nitter scraper (fallback)
+
+---
+
+## 📂 Project Structure
+
 ```
 Sentify-App/
-  main.py                  # App entrypoint (CustomTkinter UI)
-  pages/                   # UI pages (analysis, training, settings, etc.)
-  addons/                  # Collectors and analyzers (Twitter, Reddit, HF models)
-  models/                  # Training code and saved models
-  utils/                   # Config, preprocessing, visualization helpers
-  data/                    # Sample/input datasets (CSV)
-  outputs/                 # Collected tweets and exports (created at runtime)
+├── main.py                     # Application entry point
+├── pages/                      # GUI pages (analysis, training, comparison)
+├── addons/                     # Analyzers, collectors, multilingual models
+├── models/                     # Model architectures and checkpoints
+├── utils/                      # Preprocessing, visualization, helpers
+├── data/                       # Datasets
+├── outputs/                    # Generated CSVs, plots, and results
+└── requirements.txt
 ```
 
-**Quickstart**
-- Prerequisites: Python 3.9+ recommended; Windows/macOS/Linux with Tk available
+---
 
-- Create and activate a virtual environment, then install requirements:
-  - Windows (PowerShell)
-    - `python -m venv .venv`
-    - `.\.venv\Scripts\Activate.ps1`
-    - `pip install --upgrade pip`
-    - `pip install -r requirements.txt`
-  - macOS/Linux
-    - `python3 -m venv .venv`
-    - `source .venv/bin/activate`
-    - `python -m pip install --upgrade pip`
-    - `pip install -r requirements.txt`
+## 🧑‍💻 Contributing
 
-- Run the app:
-  - `python main.py`
+Pull requests are welcome!  
+Please follow [PEP 8](https://peps.python.org/pep-0008/) and keep commits clean.
 
-**GPU Note (PyTorch)**
-- The default `requirements.txt` installs a CPU build of PyTorch.
-- For NVIDIA GPUs, install a CUDA-enabled build first: https://pytorch.org/get-started/locally/
-  - Example: `pip install torch --index-url https://download.pytorch.org/whl/cu121`
+1. Fork the repo  
+2. Create your feature branch  
+3. Commit with descriptive messages  
+4. Submit a pull request 🎉  
 
-**Optional Integrations**
-- Twitter/X (real-time collection)
-  - Uses Tweepy (API v2 recent search). Provide a Bearer Token.
-  - Simplest: edit the `bearer_token` in `addons/collector.py` with your token (do not commit secrets).
+---
 
-- Reddit (thread analysis)
-  - Set environment variables:
-    - `REDDIT_CLIENT_ID`
-    - `REDDIT_CLIENT_SECRET`
-    - `REDDIT_USER_AGENT` (e.g., `Sentify-App/1.0`)
-  - The app will also fall back to values in `app_config.json` if present.
+## 📜 License
 
-**Datasets and Training**
-- The Training page supports CSV datasets with a text column and a label column.
-- Workflow:
-  - Load CSV (optionally sample large files)
-  - Configure preprocessing (URLs/mentions/punctuation removal, case, etc.)
-  - Split into train/validation/test
-  - Train LSTM/CNN or evaluate local Transformer checkpoints
-  - View metrics/curves and save models with metadata
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-**Troubleshooting**
-- HF model downloads: the first run may download model weights; ensure network access and disk space.
-- XLM-R models require `sentencepiece` (included in requirements).
-- On some Linux distros, install Tk (e.g., `sudo apt-get install python3-tk`).
-- If matplotlib figures don’t render, ensure a GUI backend is available on your OS.
+---
 
-**Contributing**
-- Use clear, documented code (PEP 8) and small PRs
-- Avoid committing API keys or large datasets
-- Propose improvements via issues and pull requests
+## 🎓 Academic Use
 
-**License**
-- Add your license file (e.g., MIT) at the repository root.
+If you use **Sentify-App** for research or a thesis, please cite it as:
+
+> Sentify-App: An Interactive Platform for Social Media Sentiment Analysis and Model Fine-Tuning (2025)
+
+---
+
+⭐ **If you find this project useful, consider giving it a star!**
