@@ -12,3 +12,9 @@ Dominant sentiment: Neutral
   Neutral: 80.69%
   Positive: 3.94%
 
+[2025-11-05 21:04:56]
+Add an export helper that saves vectorizer.pkl and label_encoder.pkl during/after training (e.g., integrate into Page 5 or ModelTrainer)?
+Make the local model scan recursive under models/?
+Dominant sentiment: Error
+  Error: 100.00%
+

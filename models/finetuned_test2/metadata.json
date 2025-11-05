@@ -1,0 +1,8 @@
+{
+  "model_type": "transformer",
+  "save_time": "2025-11-05 11:29:18",
+  "model_name": "finetuned_1762330183",
+  "pytorch_version": "2.5.1+cu121",
+  "cuda_version": "12.1",
+  "device": "cuda:0"
+}

@@ -259,6 +259,38 @@ class ModelTrainer:
             callbacks: Dictionary mapping event names to callback functions
         """
         self.callbacks = callbacks
+
+    def _save_preprocessing_artifacts(self, data_processor: 'DataProcessor', model_name: str) -> None:
+        """Persist vectorizer and label encoder alongside the model for inference.
+
+        Saves files into models/<model_name>/:
+          - vectorizer.pkl (if available)
+          - label_encoder.pkl (if available)
+        """
+        try:
+            model_path = os.path.join(self.model_dir, model_name)
+            os.makedirs(model_path, exist_ok=True)
+            # Save vectorizer
+            vec = getattr(data_processor, 'vectorizer', None)
+            if vec is not None:
+                with open(os.path.join(model_path, 'vectorizer.pkl'), 'wb') as f:
+                    pickle.dump(vec, f)
+            # Save label encoder
+            le = getattr(data_processor, 'label_encoder', None)
+            if le is not None:
+                with open(os.path.join(model_path, 'label_encoder.pkl'), 'wb') as f:
+                    pickle.dump(le, f)
+            print(f"Saved preprocessing artifacts to {model_path}")
+        except Exception as e:
+            print(f"Warning: failed to save preprocessing artifacts: {e}")
+
+    def export_preprocessing_artifacts(self, data_processor: 'DataProcessor', model_name: str) -> str:
+        """Public helper to export vectorizer and label encoder for a given model name.
+
+        Returns the target directory path.
+        """
+        self._save_preprocessing_artifacts(data_processor, model_name)
+        return os.path.join(self.model_dir, model_name)
     
     def _call_callback(self, event: str, *args, **kwargs):
         """
@@ -1142,6 +1174,8 @@ class ModelTrainer:
             clip_grad=clip_grad,
             max_grad_norm=max_grad_norm
         )
+        # Save preprocessing artifacts for downstream inference
+        self._save_preprocessing_artifacts(data_processor, model_name)
     
     def train_cnn(self, data_processor: DataProcessor, model_name: str,
                 filter_sizes: List[int] = [3, 4, 5], num_filters: int = 100,
@@ -1299,6 +1333,8 @@ class ModelTrainer:
             clip_grad=clip_grad,
             max_grad_norm=max_grad_norm
         )
+        # Save preprocessing artifacts for downstream inference
+        self._save_preprocessing_artifacts(data_processor, model_name)
 
     def _train_advanced_model(self, model: nn.Module, train_loader: DataLoader,
                             val_loader: Optional[DataLoader], criterion: nn.Module,
