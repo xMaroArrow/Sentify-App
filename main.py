@@ -205,6 +205,12 @@ class MyApp(ctk.CTk):
         # Hide only pages that exist and are currently managed by grid
         for page in self.pages.values():
             try:
+                # Proactively cancel any scheduled tasks on the page before hiding
+                if hasattr(page, 'cancel_page_tasks'):
+                    try:
+                        page.cancel_page_tasks()
+                    except Exception:
+                        pass
                 if page.winfo_exists() and getattr(page, "winfo_manager", lambda: "")() == "grid":
                     page.grid_remove()
             except Exception:

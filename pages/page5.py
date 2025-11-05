@@ -1875,6 +1875,8 @@ class Page5(ctk.CTkFrame):
         self.viz_canvas = FigureCanvasTkAgg(fig, master=self.viz_container)
         self.viz_canvas.draw()
         self.viz_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Detach from pyplot to prevent figure accumulation warnings
+        plt.close(fig)
     
     def _export_visualization(self):
         """Export current visualization to a file."""
@@ -2134,6 +2136,8 @@ class Page5(ctk.CTkFrame):
         self.compare_canvas = FigureCanvasTkAgg(fig, master=self.compare_container)
         self.compare_canvas.draw()
         self.compare_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Detach from pyplot to prevent figure accumulation warnings
+        plt.close(fig)
     
     def destroy(self):
         """Clean up resources when the page is destroyed."""
