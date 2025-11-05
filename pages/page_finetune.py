@@ -165,6 +165,13 @@ class PageFineTune(ctk.CTkFrame):
         ctk.CTkLabel(ctr, text="Checkpoint Every:").pack(side="left", padx=6)
         ctk.CTkOptionMenu(ctr, values=["1", "2", "3"], variable=self.ckpt_every, width=80).pack(side="left", padx=6)
 
+        # Preset buttons
+        preset_row = ctk.CTkFrame(tr); preset_row.pack(fill="x", padx=10, pady=5)
+        ctk.CTkLabel(preset_row, text="Presets:", width=80, anchor="w").pack(side="left", padx=6)
+        ctk.CTkButton(preset_row, text="Quick", width=90, command=lambda: self._apply_preset("quick")).pack(side="left", padx=4)
+        ctk.CTkButton(preset_row, text="Balanced", width=90, command=lambda: self._apply_preset("balanced")).pack(side="left", padx=4)
+        ctk.CTkButton(preset_row, text="High-Accuracy", width=120, command=lambda: self._apply_preset("high")).pack(side="left", padx=4)
+
         br = ctk.CTkFrame(tr); br.pack(fill="x", padx=10, pady=5)
         ctk.CTkButton(br, text="Start Fine-Tuning", command=self._start, width=160).pack(side="left", padx=6)
         ctk.CTkButton(br, text="Evaluate Current Model", command=self._eval_current, width=200).pack(side="left", padx=6)
@@ -299,7 +306,18 @@ class PageFineTune(ctk.CTkFrame):
         def on_epoch_end(epoch: int, hist_ep: Dict[str, Any]):
             self.history.append(hist_ep)
             prog = min(0.2 + (epoch + 1) / max(1, params["epochs"]) * 0.75, 0.95)
-            self.after(0, lambda: self._set_progress(f"Epoch {epoch+1}/{params['epochs']} done.", prog))
+            # Format LR if available
+            lr_val = hist_ep.get('learning_rate') or hist_ep.get('lr')
+            try:
+                lr_f = float(lr_val) if lr_val is not None else None
+            except Exception:
+                lr_f = None
+            if lr_f is not None:
+                lr_str = f"{lr_f:.6f}" if abs(lr_f) >= 1e-3 else f"{lr_f:.2e}"
+                msg = f"Epoch {epoch+1}/{params['epochs']} done. LR: {lr_str}"
+            else:
+                msg = f"Epoch {epoch+1}/{params['epochs']} done."
+            self.after(0, lambda: self._set_progress(msg, prog))
             self.after(0, self._update_learning_curves)
 
         def on_checkpoint(epoch: int, path: str):
@@ -452,6 +470,67 @@ class PageFineTune(ctk.CTkFrame):
             self.device_label_ft.configure(text="Device: " + self.trainer.current_device_info())
         except Exception:
             pass
+
+    def _apply_preset(self, name: str):
+        """Apply preset hyperparameters to the UI controls."""
+        n = (name or '').lower()
+        # Helper to set a StringVar safely
+        def setv(var, val):
+            try:
+                var.set(str(val))
+            except Exception:
+                pass
+        # Detect backbone to pick LR
+        model_id = (self.custom_model.get().strip() or self.model_id.get() or '').lower()
+        def default_lr():
+            return "5e-5" if "distilbert" in model_id else "2e-5"
+
+        if n == "quick":
+            setv(self.max_len, 64)
+            setv(self.batch, 16)
+            setv(self.epochs, 2)
+            setv(self.lr, default_lr())
+            setv(self.wd, 0.01)
+            setv(self.warmup, 0.06)
+            setv(self.clip, 1.0)
+            self.freeze_base.set(True)
+            self.unfreeze_n.set("0")
+            self.class_weight.set(True)
+            setv(self.patience, 1)
+            # Manual overrides (to enforce values)
+            setv(self.manual_batch, 16)
+            setv(self.manual_epochs, 2)
+            setv(self.manual_lr, default_lr())
+        elif n == "balanced":
+            setv(self.max_len, 128)
+            setv(self.batch, 32)
+            setv(self.epochs, 4)
+            setv(self.lr, default_lr())
+            setv(self.wd, 0.01)
+            setv(self.warmup, 0.1)
+            setv(self.clip, 1.0)
+            self.freeze_base.set(False)
+            self.unfreeze_n.set("0")
+            self.class_weight.set(True)
+            setv(self.patience, 2)
+            setv(self.manual_batch, 32)
+            setv(self.manual_epochs, 4)
+            setv(self.manual_lr, default_lr())
+        else:  # high accuracy
+            setv(self.max_len, 160)
+            setv(self.batch, 16)
+            setv(self.epochs, 6)
+            setv(self.lr, default_lr())
+            setv(self.wd, 0.01)
+            setv(self.warmup, 0.1)
+            setv(self.clip, 1.0)
+            self.freeze_base.set(False)
+            self.unfreeze_n.set("0")
+            self.class_weight.set(True)
+            setv(self.patience, 3)
+            setv(self.manual_batch, 16)
+            setv(self.manual_epochs, 6)
+            setv(self.manual_lr, default_lr())
 
         
 

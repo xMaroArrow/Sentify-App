@@ -1879,7 +1879,9 @@ class ModelTrainer:
                     batch_acc = (predicted == labels).sum().item() / labels.size(0)
                     curr_lr = optimizer.param_groups[0]['lr']
                     steps_info = f"(Opt step: {(batch_idx + 1) // gradient_accumulation_steps})" if gradient_accumulation_steps > 1 else ""
-                    print(f"Epoch {epoch+1}/{epochs} | Batch {batch_idx+1}/{total_batches} {steps_info} | Loss: {batch_loss:.4f} | Acc: {batch_acc:.4f} | LR: {curr_lr:.6f}")
+                    # Show very small learning rates in scientific notation
+                    lr_str = f"{curr_lr:.6f}" if abs(curr_lr) >= 1e-3 else f"{curr_lr:.2e}"
+                    print(f"Epoch {epoch+1}/{epochs} | Batch {batch_idx+1}/{total_batches} {steps_info} | Loss: {batch_loss:.4f} | Acc: {batch_acc:.4f} | LR: {lr_str}")
             
             # Calculate training metrics
             train_loss = running_loss / total_batches
@@ -2366,7 +2368,7 @@ class ModelTrainer:
         return val_loss, val_acc
     
     def _validate_transformer_model(self, model: nn.Module, val_loader: DataLoader, 
-                                   criterion: nn.Module) -> Tuple[float, float]:
+                                   criterion: nn.Module, use_fp16: Optional[bool] = None) -> Tuple[float, float]:
         """
         Validate transformer model performance with GPU optimization.
         
@@ -2390,7 +2392,9 @@ class ModelTrainer:
                 labels = batch[2].to(self.device)
                 
                 # Use mixed precision if available
-                if self.use_amp:
+                # prefer explicit flag if provided, else trainer setting
+                use_amp = self.use_amp if use_fp16 is None else bool(use_fp16)
+                if use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = model(input_ids, attention_mask=attention_mask)
                         loss = criterion(outputs.logits, labels)
@@ -2584,6 +2588,15 @@ class ModelTrainer:
             clip_grad=True,
             max_grad_norm=grad_clip_max_norm,
         )
+
+        # Ensure tokenizer files are saved into the model directory for later evaluation
+        try:
+            from transformers import AutoTokenizer
+            model_path = os.path.join(self.model_dir, model_name)
+            tok = AutoTokenizer.from_pretrained(pretrained_model)
+            tok.save_pretrained(model_path)
+        except Exception:
+            pass
 
         # Evaluate once and return
         results = self.evaluate_model(model_name=model_name, data_processor=data_processor)
