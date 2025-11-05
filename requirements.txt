@@ -1,0 +1,15 @@
+customtkinter>=5.2.0
+numpy>=1.23
+pandas>=1.5
+matplotlib>=3.7
+seaborn>=0.12
+scikit-learn>=1.1
+torch
+transformers>=4.40
+sentencepiece>=0.1.99
+tweepy>=4.14
+praw>=7.7
+requests>=2.31
+beautifulsoup4>=4.12
+langdetect>=1.0.9
+langid>=1.1.6
