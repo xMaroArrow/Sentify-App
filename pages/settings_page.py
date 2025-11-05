@@ -240,15 +240,16 @@ class SettingsPage(ctk.CTkFrame):
     def _scan_local_transformer_models(self):
         """Return a list of local directories (recursively) that look like transformer models."""
         candidates = []
-        base = "models"
+        base = self._models_base_dir()
         if os.path.isdir(base):
             for root, dirs, files in os.walk(base):
-                # Skip archive directories
-                parts = os.path.normpath(root).split(os.sep)
-                if len(parts) > 1 and parts[1].lower() == "archive":
+                # Skip archive directories under models
+                rel = os.path.relpath(root, base)
+                rel_parts = [] if rel == '.' else rel.split(os.sep)
+                if rel_parts and rel_parts[0].lower() == "archive":
                     continue
                 if "config.json" in files:
-                    candidates.append(root)
+                    candidates.append(os.path.normpath(root))
         # Deduplicate and sort
         return sorted(set(candidates))
 
@@ -256,45 +257,58 @@ class SettingsPage(ctk.CTkFrame):
         """Build display values for local models and a mapping to their metadata."""
         values = []
         mapping = {}
+        base = self._models_base_dir()
         # Transformers first
         for p in transformer_paths:
-            disp = f"[TF] {p}"
+            rel = os.path.relpath(p, base) if p.startswith(base) else p
+            disp = f"[TF] models{os.sep}{rel}"
             values.append(disp)
             mapping[disp] = {"type": "transformer", "path": p}
         # Then PyTorch
         for p in pytorch_paths:
-            disp = f"[PT] {p}"
+            rel = os.path.relpath(p, base) if p.startswith(base) else p
+            disp = f"[PT] models{os.sep}{rel}"
             values.append(disp)
             mapping[disp] = {"type": "pytorch", "path": p}
         return values, mapping
 
     def _is_valid_models_path(self, path: str) -> bool:
-        """Return True if path is inside ./models but not inside ./models/archive."""
+        """Return True if path is inside project models dir but not in models/archive."""
         try:
             norm = os.path.normpath(path)
-            # Must start with 'models' and not include 'models/archive'
-            parts = norm.split(os.sep)
-            if len(parts) < 2:
+            base = os.path.normpath(self._models_base_dir())
+            # Must be under the models base directory
+            if not norm.lower().startswith(base.lower()):
                 return False
-            if parts[0].lower() != 'models':
-                return False
-            if len(parts) > 1 and parts[1].lower() == 'archive':
+            rel = os.path.relpath(norm, base)
+            rel_parts = [] if rel == '.' else rel.split(os.sep)
+            if rel_parts and rel_parts[0].lower() == 'archive':
                 return False
             return True
         except Exception:
             return False
 
+    def _models_base_dir(self) -> str:
+        """Absolute path to the models directory (project-root/models)."""
+        try:
+            # pages/settings_page.py -> pages -> project root
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            return os.path.join(root, 'models')
+        except Exception:
+            return os.path.abspath('models')
+
     def _scan_local_pytorch_models(self):
         """Return a list of local directories (recursively) that look like non-transformer PyTorch models."""
         candidates = []
-        base = "models"
+        base = self._models_base_dir()
         if os.path.isdir(base):
             for root, dirs, files in os.walk(base):
-                parts = os.path.normpath(root).split(os.sep)
-                if len(parts) > 1 and parts[1].lower() == "archive":
+                rel = os.path.relpath(root, base)
+                rel_parts = [] if rel == '.' else rel.split(os.sep)
+                if rel_parts and rel_parts[0].lower() == "archive":
                     continue
                 if ("model.pt" in files) and ("config.json" not in files):
-                    candidates.append(root)
+                    candidates.append(os.path.normpath(root))
         return sorted(set(candidates))
 
     def _refresh_local_models_list(self):
