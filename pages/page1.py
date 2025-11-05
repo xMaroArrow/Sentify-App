@@ -54,18 +54,19 @@ class Page1(ctk.CTkFrame):
         )
         intro.pack(pady=(0, 12), padx=4, anchor="w")
 
-        self.option_var = ctk.StringVar(value="Tweet")
+        # Default to Text and limit options
+        self.option_var = ctk.StringVar(value="Text")
         self.option_menu = ctk.CTkOptionMenu(
             self.scrollable,
             variable=self.option_var,
-            values=["Tweet", "Text", "Hashtag", "Account", "Reddit Thread"],
+            values=["Text", "Tweet", "Reddit Thread"],
             command=self.update_description
         )
         self.option_menu.pack(pady=10)
 
         self.description_label = ctk.CTkLabel(
             self.scrollable,
-            text="Enter Tweet URL:",
+            text="Enter your Text:",
             font=("Arial", 14),
             wraplength=850,
             justify="left",
@@ -73,7 +74,7 @@ class Page1(ctk.CTkFrame):
         )
         self.description_label.pack(pady=5, padx=4, anchor="w")
 
-        self.url_entry = ctk.CTkEntry(self.scrollable, placeholder_text="Enter tweet URL here...")
+        self.url_entry = ctk.CTkEntry(self.scrollable, placeholder_text="Enter your text here...")
         self.url_entry.pack(pady=10)
 
         self.error_label = ctk.CTkLabel(self.scrollable, text="", font=("Arial", 12), text_color="red")
