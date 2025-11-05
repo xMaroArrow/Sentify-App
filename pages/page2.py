@@ -59,7 +59,9 @@ class Page2(ctk.CTkFrame):
         self.master_scroll.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         # --- State holders -------------------------------------------
-        self.collector: Optional[TweetCollector] = None
+        # Use a broad type here because TweetCollector may be provided
+        # by different optional backends at runtime.
+        self.collector: Optional[Any] = None
         self.countdown_job: Optional[int] = None
         self.analysis_thread: Optional[threading.Thread] = None
         self.running = False
@@ -675,6 +677,7 @@ Requirements:
         fig, ax = plt.subplots(figsize=(6, 6))
         bg = theme.plot_bg()
         txt = theme.text_color()
+        outline = "#000000" if theme.is_light() else "#FFFFFF"
         fig.patch.set_facecolor(bg)
         ax.set_facecolor(bg)
         
@@ -777,6 +780,7 @@ Requirements:
         fig, ax = plt.subplots(figsize=(6, 6))
         bg = theme.plot_bg()
         txt = theme.text_color()
+        outline = "#000000" if theme.is_light() else "#FFFFFF"
         fig.patch.set_facecolor(bg)
         ax.set_facecolor(bg)
         
@@ -817,7 +821,7 @@ Requirements:
                     fontweight="bold",
                     path_effects=[
                         path_effects.withStroke(
-                            linewidth=2, foreground=dark
+                            linewidth=2, foreground=outline
                         )
                     ]
                 )
