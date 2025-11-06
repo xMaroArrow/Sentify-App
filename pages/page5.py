@@ -187,7 +187,7 @@ class Page5(ctk.CTkFrame):
             text="Preprocessing Options:",
             font=("Arial", 14)
         )
-        preprocess_label.pack(side="left", padx=(10, 5), pady=10)
+        preprocess_label.pack(padx=10, pady=(10, 0), anchor="w")
         
         # Create checkboxes for preprocessing options
         self.preprocess_vars = {}
@@ -200,14 +200,25 @@ class Page5(ctk.CTkFrame):
             ("remove_numbers", "Remove numbers")
         ]
         
+        # Container to layout options in a grid so all are visible
+        options_frame = ctk.CTkFrame(preprocess_frame, fg_color="transparent")
+        options_frame.pack(fill="x", padx=10, pady=10)
+        # Arrange in 3 columns, multiple rows
+        columns = 3
         for i, (option_key, option_text) in enumerate(options):
             self.preprocess_vars[option_key] = ctk.BooleanVar(value=True)
             checkbox = ctk.CTkCheckBox(
-                preprocess_frame,
+                options_frame,
                 text=option_text,
                 variable=self.preprocess_vars[option_key]
             )
-            checkbox.pack(side="left", padx=10, pady=10)
+            r, c = divmod(i, columns)
+            checkbox.grid(row=r, column=c, sticky="w", padx=10, pady=6)
+        try:
+            for c in range(columns):
+                options_frame.grid_columnconfigure(c, weight=1)
+        except Exception:
+            pass
         
         # Data summary
         self.data_summary_frame = ctk.CTkFrame(data_frame)
