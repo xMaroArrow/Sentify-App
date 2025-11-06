@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import os
 from addons.sentiment_analyzer import SentimentAnalyzer
+from utils import theme
 
 # In a new settings_page.py
 class SettingsPage(ctk.CTkFrame):
@@ -124,7 +125,7 @@ class SettingsPage(ctk.CTkFrame):
         self.local_note = ctk.CTkLabel(
             model_frame,
             text="Note: Non-transformer (PyTorch) models require vectorizer.pkl and label_encoder.pkl in the model folder.",
-            text_color="#aaaaaa",
+            text_color=theme.subtle_text_color(),
             wraplength=600,
             justify="left",
         )
@@ -145,7 +146,7 @@ class SettingsPage(ctk.CTkFrame):
         self.model_status_label = ctk.CTkLabel(
             actions_frame,
             text="Model status: —",
-            text_color="#aaaaaa"
+            text_color=theme.subtle_text_color()
         )
         self.model_status_label.pack(side="left", padx=4, pady=4)
 
@@ -433,7 +434,7 @@ class SettingsPage(ctk.CTkFrame):
         except Exception:
             # Silent failure
             try:
-                self.model_status_label.configure(text="Model status: Unknown", text_color="#aaaaaa")
+                self.model_status_label.configure(text="Model status: Unknown", text_color=theme.subtle_text_color())
             except Exception:
                 pass
 

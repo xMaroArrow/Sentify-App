@@ -18,6 +18,8 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 import matplotlib.dates as mdates
 
+from utils import theme
+
 # Import the tweepy-based Twitter collector
 try:
     from addons.collector import TweetCollector  # Tweepy API version
@@ -531,7 +533,7 @@ class Page4(ctk.CTkFrame):
             self.dist_canvas_frame,
             text="Start monitoring or load data to see sentiment distribution",
             font=("Arial", 14),
-            text_color="#888888"
+            text_color=theme.subtle_text_color()
         )
         self.dist_placeholder.pack(expand=True)
     
@@ -595,7 +597,7 @@ class Page4(ctk.CTkFrame):
             self.time_canvas_frame,
             text="Start monitoring or load data to see sentiment trends over time",
             font=("Arial", 14),
-            text_color="#888888"
+            text_color=theme.subtle_text_color()
         )
         self.trend_placeholder.pack(expand=True)
         

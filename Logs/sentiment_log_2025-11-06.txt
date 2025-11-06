@@ -1,0 +1,17 @@
+[2025-11-06 11:28:18]
+UNIVERSITY OF BAHRAIN
+COLLEGE OF ENGINEERING
+ELECTRICAL AND ELECTRONICS ENGINEERING 
+MS. ARTIFICIAL INTELLIGENT
+Dominant sentiment: Neutral
+  Negative: 9.45%
+  Neutral: 81.25%
+  Positive: 9.31%
+
+[2025-11-06 11:28:19]
+https://www.reddit.com/r/cats/comments/1op0x2y/mr_derp_had_his_first_walk/
+Dominant sentiment: Neutral
+  Negative: 15.37%
+  Neutral: 80.69%
+  Positive: 3.94%
+

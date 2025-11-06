@@ -127,7 +127,7 @@ class Page3(ctk.CTkFrame):
             status_frame,
             text="",
             font=("Arial", 12),
-            text_color="#888888"
+            text_color=theme.subtle_text_color()
         )
         self.timestamp_label.pack(side="right", padx=10, pady=5)
 

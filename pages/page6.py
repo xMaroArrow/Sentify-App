@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
 import re
+from utils import theme
 
 class Page6(ctk.CTkFrame):
     """
@@ -74,7 +75,7 @@ class Page6(ctk.CTkFrame):
             header_frame,
             text="Compare LSTM, CNN, and pre-trained transformer models on the same dataset",
             font=("Arial", 14),
-            text_color="#888888"
+            text_color=theme.subtle_text_color()
         )
         description.pack(pady=(0, 10))
     

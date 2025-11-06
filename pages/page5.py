@@ -16,6 +16,7 @@ from datetime import datetime
 from utils.data_processor import DataProcessor
 from utils.visualization import ModelComparisonVisualizer
 from models.model_trainer import ModelTrainer
+from utils import theme
 
 class Page5(ctk.CTkFrame):
     """
@@ -45,6 +46,7 @@ class Page5(ctk.CTkFrame):
         
         # Track active threads
         self.active_threads = []
+        self._closing = False
         
         # Create the main UI
         self._create_ui()
@@ -84,7 +86,7 @@ class Page5(ctk.CTkFrame):
             header_frame,
             text="Train, evaluate, and compare sentiment analysis models",
             font=("Arial", 14),
-            text_color="#888888"
+            text_color=theme.subtle_text_color()
         )
         desc_label.pack(pady=(0, 10))
         
@@ -121,14 +123,6 @@ class Page5(ctk.CTkFrame):
             anchor="w"
         )
         data_path_label.pack(side="left", padx=5, pady=10, fill="x", expand=True)
-        
-        load_button = ctk.CTkButton(
-            load_frame,
-            text="Load Dataset",
-            command=self._load_dataset,
-            width=150
-        )
-        load_button.pack(side="right", padx=10, pady=10)
         
         # Add sample option for large datasets
         self.use_sample_var = ctk.BooleanVar(value=True)
@@ -1302,11 +1296,15 @@ class Page5(ctk.CTkFrame):
         try:
             # Update UI
             self.data_path_var.set(os.path.basename(file_path))
-            
-            # Load data in a background thread
+
+            # Snapshot UI state on the main thread (Tkinter is not thread-safe)
+            use_sample = bool(self.use_sample_var.get())
+            preprocessing_options = {key: var.get() for key, var in self.preprocess_vars.items()}
+
+            # Load data in a background thread with captured values only
             thread = threading.Thread(
                 target=self._load_data_thread,
-                args=(file_path,),
+                args=(file_path, use_sample, preprocessing_options),
                 daemon=True
             )
             thread.start()
@@ -1315,16 +1313,11 @@ class Page5(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data: {str(e)}")
             
-    def _load_data_thread(self, file_path):
+    def _load_data_thread(self, file_path, use_sample, preprocessing_options):
         """Load and process data in a background thread."""
         try:
-            # Check if we should use a sample
-            sample_size = 10000 if self.use_sample_var.get() else None
-            
-            # Update preprocessing options based on UI
-            preprocessing_options = {
-                key: var.get() for key, var in self.preprocess_vars.items()
-            }
+            # Determine sample size based on captured checkbox value
+            sample_size = 10000 if use_sample else None
             
             # Pass options to data processor - Fix the typo here
             self.data_processor.set_preprocessing_options(preprocessing_options)  # Note the 's' at the end
@@ -2141,14 +2134,36 @@ class Page5(ctk.CTkFrame):
     
     def destroy(self):
         """Clean up resources when the page is destroyed."""
+        self._closing = True
+        # Attempt to stop background threads gracefully
+        try:
+            for t in list(self.active_threads):
+                try:
+                    if t.is_alive():
+                        t.join(timeout=0.5)
+                except Exception:
+                    pass
+        finally:
+            self.active_threads = []
+
         # Close any open matplotlib figures
         plt.close('all')
         
-        # Cancel any active threads (though they're daemon so will terminate anyway)
-        self.active_threads = []
-        
         # Call parent's destroy method
         super().destroy()
+
+    def cancel_page_tasks(self):
+        """Called by the app on shutdown to stop page work safely."""
+        self._closing = True
+        try:
+            for t in list(self.active_threads):
+                try:
+                    if t.is_alive():
+                        t.join(timeout=0.5)
+                except Exception:
+                    pass
+        finally:
+            self.active_threads = []
 
     def _on_device_change(self, choice):
         """Handle compute device preference change (Auto/GPU/CPU)."""

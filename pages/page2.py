@@ -105,7 +105,7 @@ class Page2(ctk.CTkFrame):
             self.master_scroll,  # Changed parent to master_scroll
             text="Monitor Twitter sentiment for hashtags in real-time or analyze existing data",
             font=("Arial", 12),
-            text_color="#aaaaaa",
+            text_color=theme.subtle_text_color(),
             wraplength=850  # Add wraplength to handle narrow windows
         )
         desc.pack(pady=(0, 10))
@@ -147,7 +147,7 @@ class Page2(ctk.CTkFrame):
         self.status = ctk.CTkLabel(
             input_frame, 
             text="Ready", 
-            text_color="gray",
+            text_color=theme.subtle_text_color(),
             width=150
         )
         self.status.pack(side="right")
@@ -246,7 +246,7 @@ class Page2(ctk.CTkFrame):
             self.stats_frame,
             text="No data available",
             font=("Arial", 12),
-            text_color="#aaaaaa",
+            text_color=theme.subtle_text_color(),
             justify="left",
             anchor="w",
             wraplength=1000,
@@ -407,7 +407,7 @@ Requirements:
             self.countdown_job = None
         
         # Update UI
-        self.status.configure(text="Stopped", text_color="gray")
+        self.status.configure(text="Stopped", text_color=theme.subtle_text_color())
         self.progress.set(0)
         try:
             self._set_controls_state(True)

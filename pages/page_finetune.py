@@ -11,6 +11,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from utils.data_processor import DataProcessor
 from utils.visualization import ModelComparisonVisualizer
 from models.model_trainer import ModelTrainer
+from utils import theme
 
 
 class PageFineTune(ctk.CTkFrame):
@@ -39,7 +40,7 @@ class PageFineTune(ctk.CTkFrame):
         header.pack(fill="x", padx=5, pady=5)
         ctk.CTkLabel(header, text="Transformer Fine-Tuning", font=("Arial", 24, "bold")).pack(pady=(10, 4))
         ctk.CTkLabel(header, text="Fine-tune pre-trained models for social-media sentiment analysis",
-                     font=("Arial", 14), text_color="#888888").pack(pady=(0, 10))
+                     font=("Arial", 14), text_color=theme.subtle_text_color()).pack(pady=(0, 10))
 
         # Dataset
         ds = ctk.CTkFrame(self.scroll)
