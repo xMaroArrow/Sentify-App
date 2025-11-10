@@ -13,3 +13,6 @@ requests>=2.31
 beautifulsoup4>=4.12
 langdetect>=1.0.9
 langid>=1.1.6
+pyautogui
+keyboard
+pyperclip
